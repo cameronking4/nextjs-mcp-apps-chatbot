@@ -2,7 +2,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
 
-export async function proxy(request: NextRequest) {
+async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   /*
@@ -74,7 +74,7 @@ export async function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
-export const config = {
+const config = {
   matcher: [
     "/",
     "/chat/:id",
@@ -91,3 +91,6 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
   ],
 };
+
+// Export as middleware for Next.js
+export { proxy as middleware, config };
