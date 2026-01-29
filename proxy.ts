@@ -27,18 +27,24 @@ export async function proxy(request: NextRequest) {
       });
     }
 
-    // Add CORS headers to MCP responses
-    const response = NextResponse.next();
-    response.headers.set("Access-Control-Allow-Origin", "*");
-    response.headers.set(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, DELETE, OPTIONS"
-    );
-    response.headers.set(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization"
-    );
-    return response;
+    // MCP server endpoint should be publicly accessible for external clients
+    // (Claude Desktop, Cursor, other MCP clients)
+    if (pathname.startsWith("/api/mcp/server")) {
+      const response = NextResponse.next();
+      response.headers.set("Access-Control-Allow-Origin", "*");
+      response.headers.set(
+        "Access-Control-Allow-Methods",
+        "GET, POST, PUT, DELETE, OPTIONS"
+      );
+      response.headers.set(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization"
+      );
+      return response;
+    }
+
+    // MCP client endpoint stays auth-protected (internal use only)
+    // Continue to auth check below
   }
 
   if (pathname.startsWith("/api/auth")) {
