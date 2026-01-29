@@ -4,9 +4,6 @@ import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
 
 async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
-  // Log all requests that hit the proxy to debug the matcher
-  console.log(`[Proxy] Request: ${pathname}`);
 
   /*
    * Playwright starts the dev server and requires a 200 status to
@@ -19,7 +16,6 @@ async function proxy(request: NextRequest) {
   // MCP endpoints should not hit this proxy at all due to matcher exclusion
   // But adding this as a safeguard
   if (pathname.startsWith("/api/mcp")) {
-    console.log(`[Proxy] MCP endpoint bypassed: ${pathname}`);
     return NextResponse.next();
   }
 
