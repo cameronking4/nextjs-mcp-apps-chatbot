@@ -4,6 +4,9 @@ import { guestRegex, isDevelopmentEnvironment } from "./lib/constants";
 
 async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  
+  // Log all requests that hit the proxy to debug the matcher
+  console.log(`[Proxy] Request: ${pathname}`);
 
   /*
    * Playwright starts the dev server and requires a 200 status to
@@ -11,6 +14,13 @@ async function proxy(request: NextRequest) {
    */
   if (pathname.startsWith("/ping")) {
     return new Response("pong", { status: 200 });
+  }
+
+  // MCP endpoints should not hit this proxy at all due to matcher exclusion
+  // But adding this as a safeguard
+  if (pathname.startsWith("/api/mcp")) {
+    console.log(`[Proxy] MCP endpoint bypassed: ${pathname}`);
+    return NextResponse.next();
   }
 
   // Auth routes are handled by NextAuth
@@ -46,18 +56,13 @@ export { proxy };
 
 export const config = {
   matcher: [
-    "/",
-    "/chat/:id",
-    "/login",
-    "/register",
-
     /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
-     * - api/mcp (MCP endpoints - publicly accessible)
+     * Match all paths except:
+     * - /api/mcp/* (MCP endpoints - publicly accessible)
+     * - /api/auth/* (handled by NextAuth)
+     * - /_next/* (Next.js internals)
+     * - /favicon.ico, /sitemap.xml, /robots.txt (static files)
      */
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api/mcp).*)",
+    "/((?!api/mcp/|api/auth/|_next/|favicon\\.ico|sitemap\\.xml|robots\\.txt).*)",
   ],
 };
