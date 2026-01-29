@@ -87,6 +87,8 @@ class MCPClientManager {
     method: string,
     params?: Record<string, unknown>
   ): Promise<T> {
+    console.log(`[MCP Client] Making request to: ${baseUrl}, method: ${method}`);
+    
     const response = await fetch(baseUrl, {
       method: "POST",
       headers: {
@@ -100,7 +102,11 @@ class MCPClientManager {
       }),
     });
 
+    console.log(`[MCP Client] Response status: ${response.status} ${response.statusText}`);
+    
     if (!response.ok) {
+      const errorBody = await response.text();
+      console.error(`[MCP Client] Error response body:`, errorBody);
       throw new Error(`HTTP error: ${response.status} ${response.statusText}`);
     }
 
@@ -126,16 +132,23 @@ class MCPClientManager {
     if (typeof window !== "undefined") {
       // Client-side: use browser's origin
       baseUrl = window.location.origin;
+      console.log(`[MCP Client] Resolving URL (client-side): ${url} -> ${baseUrl}${url}`);
     } else {
       // Server-side: check for Vercel deployment URL first
       if (process.env.VERCEL_URL) {
         // VERCEL_URL doesn't include protocol, add https for production/preview
         const protocol = process.env.VERCEL_ENV === "development" ? "http" : "https";
         baseUrl = `${protocol}://${process.env.VERCEL_URL}`;
+        console.log(`[MCP Client] Resolving URL (Vercel): ${url} -> ${baseUrl}${url}`, {
+          VERCEL_URL: process.env.VERCEL_URL,
+          VERCEL_ENV: process.env.VERCEL_ENV,
+          protocol,
+        });
       } else {
         // Local development: use localhost
         const port = process.env.PORT ?? "3000";
         baseUrl = `http://localhost:${port}`;
+        console.log(`[MCP Client] Resolving URL (localhost): ${url} -> ${baseUrl}${url}`);
       }
     }
 

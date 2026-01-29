@@ -508,8 +508,10 @@ function handleJsonRpcRequest(request: {
 }
 
 export async function POST(request: Request) {
+  console.log(`[MCP Server] Received POST request to ${request.url}`);
   try {
     const body = await request.json();
+    console.log(`[MCP Server] Request body:`, JSON.stringify(body).slice(0, 200));
 
     if (Array.isArray(body)) {
       const responses = body.map(handleJsonRpcRequest);
