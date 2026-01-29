@@ -15,6 +15,11 @@ import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
+import {
+  createAllMCPToolWrappers,
+  ensureMCPConnections,
+  getMCPToolNames,
+} from "@/lib/ai/tools/mcp-tools";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { isProductionEnvironment } from "@/lib/constants";
@@ -139,19 +144,46 @@ export async function POST(request: Request) {
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow ? uiMessages : undefined,
       execute: async ({ writer: dataStream }) => {
+        // Ensure MCP servers are connected before getting tools
+        // This handles serverless cold starts where singleton state is lost
+        await ensureMCPConnections();
+
+        // Get MCP tools from connected servers
+        const mcpTools = createAllMCPToolWrappers(dataStream);
+        const mcpToolNames = getMCPToolNames();
+
+        // Built-in tool names (typed as const for strict type checking)
+        const builtInToolNames = [
+          "getWeather",
+          "createDocument",
+          "updateDocument",
+          "requestSuggestions",
+        ] as const;
+
+        // All tools combined (built-in + MCP)
+        const allTools = {
+          // Built-in tools
+          getWeather,
+          createDocument: createDocument({ session, dataStream }),
+          updateDocument: updateDocument({ session, dataStream }),
+          requestSuggestions: requestSuggestions({ session, dataStream }),
+          // MCP tools (dynamically added)
+          ...mcpTools,
+        };
+
+        // Combine all active tool names
+        const allActiveToolNames = isReasoningModel
+          ? []
+          : ([...builtInToolNames, ...mcpToolNames] as Array<
+              keyof typeof allTools
+            >);
+
         const result = streamText({
           model: getLanguageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),
           messages: modelMessages,
           stopWhen: stepCountIs(5),
-          experimental_activeTools: isReasoningModel
-            ? []
-            : [
-                "getWeather",
-                "createDocument",
-                "updateDocument",
-                "requestSuggestions",
-              ],
+          experimental_activeTools: allActiveToolNames,
           providerOptions: isReasoningModel
             ? {
                 anthropic: {
@@ -159,12 +191,7 @@ export async function POST(request: Request) {
                 },
               }
             : undefined,
-          tools: {
-            getWeather,
-            createDocument: createDocument({ session, dataStream }),
-            updateDocument: updateDocument({ session, dataStream }),
-            requestSuggestions: requestSuggestions({ session, dataStream }),
-          },
+          tools: allTools,
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",

@@ -1,6 +1,6 @@
 "use client";
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
@@ -17,6 +17,7 @@ import {
   ToolOutput,
 } from "./elements/tool";
 import { SparklesIcon } from "./icons";
+import { MCPToolResult } from "./mcp-tool-result";
 import { MessageActions } from "./message-actions";
 import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
@@ -33,6 +34,7 @@ const PurePreviewMessage = ({
   regenerate,
   isReadonly,
   requiresScrollPadding: _requiresScrollPadding,
+  sendMessage,
 }: {
   addToolApprovalResponse: UseChatHelpers<ChatMessage>["addToolApprovalResponse"];
   chatId: string;
@@ -43,6 +45,7 @@ const PurePreviewMessage = ({
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
   isReadonly: boolean;
   requiresScrollPadding: boolean;
+  sendMessage?: UseChatHelpers<ChatMessage>["sendMessage"];
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
 
@@ -339,6 +342,87 @@ const PurePreviewMessage = ({
                     )}
                   </ToolContent>
                 </Tool>
+              );
+            }
+
+            // Handle MCP tools (tools with mcp_ prefix)
+            if (type.startsWith("tool-mcp_")) {
+              const { toolCallId, state, input, output } = part as {
+                toolCallId: string;
+                state: string;
+                input?: Record<string, unknown>;
+                output?: {
+                  content: Array<{
+                    type: string;
+                    text?: string;
+                    data?: unknown;
+                  }>;
+                  isError?: boolean;
+                  _mcpMeta?: {
+                    serverId?: string;
+                    serverName?: string;
+                    uiHtml?: string;
+                    uiMeta?: {
+                      resourceUri?: string;
+                      initialHeight?: number;
+                      resizable?: boolean;
+                    };
+                  };
+                  // Also check for _meta directly from tool result
+                  _meta?: {
+                    ui?: {
+                      resourceUri?: string;
+                      initialHeight?: number;
+                      resizable?: boolean;
+                    };
+                  };
+                };
+              };
+
+              // Extract server ID from type
+              // Format: tool-mcp_serverId_toolName
+              const typeParts = type.replace("tool-", "").split("_");
+              const serverId = typeParts[1];
+
+              // Get MCP-specific metadata from the output
+              // Check both _mcpMeta (added by our wrapper) and _meta (from tool result)
+              const mcpMeta = output?._mcpMeta;
+              const resultMeta = output?._meta;
+
+              // Handler for sending user messages from MCP App UI
+              const handleSendMessage = (text: string) => {
+                if (sendMessage) {
+                  sendMessage({
+                    role: "user",
+                    parts: [{ type: "text", text }],
+                  });
+                }
+              };
+
+              return (
+                <div className="w-full max-w-2xl" key={toolCallId}>
+                  <MCPToolResult
+                    onSendMessage={handleSendMessage}
+                    part={{
+                      toolCallId,
+                      toolName: type.replace("tool-", ""),
+                      state: state as
+                        | "input-streaming"
+                        | "input-available"
+                        | "approval-requested"
+                        | "approval-responded"
+                        | "output-available"
+                        | "output-denied"
+                        | "error",
+                      input,
+                      output,
+                      serverId: mcpMeta?.serverId ?? serverId,
+                      serverName: mcpMeta?.serverName,
+                      uiHtml: mcpMeta?.uiHtml,
+                      uiMeta: mcpMeta?.uiMeta ?? resultMeta?.ui,
+                    }}
+                  />
+                </div>
               );
             }
 

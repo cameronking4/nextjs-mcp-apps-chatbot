@@ -7,6 +7,7 @@ import { useWindowSize } from "usehooks-ts";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { Button } from "@/components/ui/button";
 import { PlusIcon, VercelIcon } from "./icons";
+import { MCPStatusIndicator } from "./mcp-settings";
 import { useSidebar } from "./ui/sidebar";
 import { VisibilitySelector, type VisibilityType } from "./visibility-selector";
 
@@ -49,6 +50,10 @@ function PureChatHeader({
           selectedVisibilityType={selectedVisibilityType}
         />
       )}
+
+      <div className="order-2 md:order-3">
+        <MCPStatusIndicator />
+      </div>
 
       <Button
         asChild

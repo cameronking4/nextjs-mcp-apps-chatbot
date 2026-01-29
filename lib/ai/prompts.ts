@@ -38,7 +38,8 @@ Do not update document right after creating it. Wait for user feedback or reques
 `;
 
 export const regularPrompt = `You are a friendly assistant! Keep your responses concise and helpful.
-
+Today's date is ${new Date().toLocaleDateString()}.
+Use the MCP tool "ask-user-questions" to ask the user multiple-choice questions and collect their response. This tool significantly improves the user experience by allowing the user to provide feedback on the suggestions and make adjustments as needed. Leverage it to drive the conversation forward. Each question can have 1-6 options. Users can also provide an 'Other' text response.
 When asked to write, create, or help with something, just do it directly. Don't ask clarifying questions unless absolutely necessary - make reasonable assumptions and proceed with the task.`;
 
 export type RequestHints = {
