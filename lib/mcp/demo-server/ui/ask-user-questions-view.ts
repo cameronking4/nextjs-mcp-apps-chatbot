@@ -1,8 +1,8 @@
 /**
  * Ask User Questions View - MCP App UI
  *
- * Interactive multiple-choice question card with navigation,
- * keyboard shortcuts, and "Other" text input option.
+ * Interactive multiple-choice question card with navigation and keyboard shortcuts.
+ * Automatically includes an "Other" option with text input for custom responses.
  * Styled to match shadcn/ui patterns.
  */
 
@@ -64,7 +64,7 @@ export function getAskUserQuestionsViewHtml(): string {
       background: var(--background);
       color: var(--foreground);
       padding: 0;
-      line-height: 1.4;
+      line-height: 1.5;
     }
 
     body.dark {
@@ -95,7 +95,7 @@ export function getAskUserQuestionsViewHtml(): string {
       display: flex;
       flex-direction: column;
       gap: 0;
-      padding: 8px 12px;
+      padding: 10px 16px;
       border-bottom: 1px solid var(--border);
     }
 
@@ -106,7 +106,7 @@ export function getAskUserQuestionsViewHtml(): string {
     }
 
     .card-title {
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 500;
       color: var(--muted-foreground);
     }
@@ -147,15 +147,15 @@ export function getAskUserQuestionsViewHtml(): string {
     }
 
     .card-content {
-      padding: 12px;
+      padding: 14px 16px;
     }
 
     .question-text {
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 500;
       color: var(--card-foreground);
-      margin-bottom: 10px;
-      line-height: 1.3;
+      margin-bottom: 12px;
+      line-height: 1.4;
     }
 
     .options-list {
@@ -167,14 +167,14 @@ export function getAskUserQuestionsViewHtml(): string {
     .option-btn {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       width: 100%;
-      padding: 8px 10px;
+      padding: 11px 14px;
       border: 1px solid var(--border);
       border-radius: 4px;
       background: var(--background);
       color: var(--foreground);
-      font-size: 13px;
+      font-size: 14px;
       text-align: left;
       cursor: pointer;
       transition: background-color 0.15s, border-color 0.15s, box-shadow 0.15s;
@@ -200,12 +200,12 @@ export function getAskUserQuestionsViewHtml(): string {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 20px;
-      height: 20px;
+      width: 22px;
+      height: 22px;
       border-radius: 3px;
       background: var(--secondary);
       color: var(--secondary-foreground);
-      font-size: 11px;
+      font-size: 12px;
       font-weight: 600;
       flex-shrink: 0;
     }
@@ -223,13 +223,13 @@ export function getAskUserQuestionsViewHtml(): string {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 8px 12px;
+      padding: 10px 16px;
       border-top: 1px solid var(--border);
       background: var(--muted);
     }
 
     .skip-btn {
-      padding: 5px 12px;
+      padding: 6px 14px;
       border: 1px solid var(--border);
       border-radius: 4px;
       background: var(--background);
@@ -246,7 +246,7 @@ export function getAskUserQuestionsViewHtml(): string {
     }
 
     .continue-btn {
-      padding: 5px 14px;
+      padding: 6px 16px;
       border: none;
       border-radius: 4px;
       background: var(--primary);
@@ -371,6 +371,47 @@ export function getAskUserQuestionsViewHtml(): string {
       height: 14px;
       flex-shrink: 0;
     }
+
+    /* Other option text input */
+    .other-input-container {
+      display: none;
+      margin-top: 8px;
+      padding: 0;
+    }
+
+    .other-input-container.visible {
+      display: block;
+    }
+
+    .other-input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid var(--ring);
+      border-radius: 4px;
+      background: var(--background);
+      color: var(--foreground);
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      box-shadow: 0 0 0 2px var(--ring);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .other-input::placeholder {
+      color: var(--muted-foreground);
+      opacity: 0.6;
+    }
+
+    .other-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 2px var(--ring);
+    }
+
+    .other-input:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      background: var(--muted);
+    }
   </style>
 </head>
 <body>
@@ -404,6 +445,16 @@ export function getAskUserQuestionsViewHtml(): string {
         
         <div class="options-list" id="options-list">
           <!-- Options will be inserted here -->
+        </div>
+        
+        <div class="other-input-container" id="other-input-container">
+          <input
+            type="text"
+            class="other-input"
+            id="other-input"
+            placeholder="Type your answer here..."
+            maxlength="200"
+          />
         </div>
         
         <div class="keyboard-hint" id="keyboard-hint">
@@ -444,6 +495,8 @@ export function getAskUserQuestionsViewHtml(): string {
     const progressEl = document.getElementById('progress');
     const questionTextEl = document.getElementById('question-text');
     const optionsListEl = document.getElementById('options-list');
+    const otherInputContainerEl = document.getElementById('other-input-container');
+    const otherInputEl = document.getElementById('other-input');
     const questionContentEl = document.getElementById('question-content');
     const submittedStateEl = document.getElementById('submitted-state');
     const answeredNoticeEl = document.getElementById('answered-notice');
@@ -558,6 +611,47 @@ export function getAskUserQuestionsViewHtml(): string {
         optionsListEl.appendChild(btn);
       });
 
+      // Add "Other" option button (max 6 options means "Other" would be at most key F or beyond)
+      const otherBtnIdx = question.options.length;
+      if (otherBtnIdx < 6) { // Only add if we have room (A-F keys)
+        const otherBtn = document.createElement('button');
+        otherBtn.type = 'button';
+        const otherSelected = answer.other && answer.other.trim().length > 0;
+        let otherClassName = 'option-btn';
+        if (isAlreadyAnswered) {
+          otherClassName += ' disabled';
+          if (otherSelected) otherClassName += ' was-selected';
+        } else if (otherSelected) {
+          otherClassName += ' selected';
+        }
+        otherBtn.className = otherClassName;
+        otherBtn.innerHTML = '<span class="option-key">' + getOptionKey(otherBtnIdx) + '</span><span class="option-label">Other...</span>';
+        if (!isAlreadyAnswered) {
+          otherBtn.onclick = () => selectOther();
+        }
+        optionsListEl.appendChild(otherBtn);
+      }
+
+      // Show/hide Other input based on whether "Other" is selected
+      if (answer.optionId === 'other' || (answer.other && answer.other.trim().length > 0)) {
+        // "Other" is selected, show input
+        otherInputContainerEl.classList.add('visible');
+        if (otherInputEl.value !== answer.other) {
+          otherInputEl.value = answer.other || '';
+        }
+        // Disable input if already answered
+        otherInputEl.disabled = isAlreadyAnswered;
+        // Auto-focus if it was just selected (empty value) and not already answered
+        if (!isAlreadyAnswered && (!answer.other || answer.other.trim().length === 0)) {
+          setTimeout(() => otherInputEl.focus(), 50);
+        }
+      } else {
+        // Hide input
+        otherInputContainerEl.classList.remove('visible');
+        otherInputEl.value = '';
+        otherInputEl.disabled = false;
+      }
+
       // Update continue button
       updateContinueButton();
 
@@ -584,10 +678,21 @@ export function getAskUserQuestionsViewHtml(): string {
       renderQuestion();
     }
 
+    function selectOther() {
+      const question = questions[currentIndex];
+      initAnswer(question.id);
+      answers[question.id].optionId = 'other';
+      // Keep existing "other" text if any, otherwise empty
+      if (!answers[question.id].other) {
+        answers[question.id].other = '';
+      }
+      renderQuestion();
+    }
+
     function updateContinueButton() {
       const question = questions[currentIndex];
       const answer = answers[question.id];
-      const hasAnswer = answer.optionId || answer.other.trim().length > 0;
+      const hasAnswer = (answer.optionId && answer.optionId !== 'other') || (answer.other && answer.other.trim().length > 0);
       const isLast = currentIndex === questions.length - 1;
       
       continueBtn.disabled = !hasAnswer && !isLast;
@@ -649,7 +754,7 @@ export function getAskUserQuestionsViewHtml(): string {
         
         if (answer.other && answer.other.trim()) {
           answerText = 'Other: ' + answer.other.trim();
-        } else if (answer.optionId) {
+        } else if (answer.optionId && answer.optionId !== 'other') {
           const option = question.options.find(o => o.id === answer.optionId);
           answerText = option ? option.label : answer.optionId;
         } else {
@@ -684,6 +789,16 @@ export function getAskUserQuestionsViewHtml(): string {
     skipBtn.addEventListener('click', skip);
     continueBtn.addEventListener('click', continueOrSubmit);
 
+    // "Other" input field listener
+    otherInputEl.addEventListener('input', (e) => {
+      const question = questions[currentIndex];
+      if (!question) return;
+      initAnswer(question.id);
+      answers[question.id].other = e.target.value;
+      answers[question.id].optionId = 'other'; // Mark as "other" option
+      updateContinueButton();
+    });
+
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       // Don't intercept if already submitted
@@ -691,6 +806,9 @@ export function getAskUserQuestionsViewHtml(): string {
 
       const question = questions[currentIndex];
       if (!question) return;
+
+      // Don't intercept keyboard shortcuts if user is typing in "Other" input
+      const isTypingInOther = document.activeElement === otherInputEl;
 
       const keyUpper = e.key.toUpperCase();
 
@@ -708,26 +826,37 @@ export function getAskUserQuestionsViewHtml(): string {
       // Don't allow selection/submission if already answered
       if (isAlreadyAnswered) return;
 
-      // A-F or 1-6 to select option
-      const optionIndex = keyUpper.charCodeAt(0) - 65; // A=0, B=1, etc.
-      const numIndex = parseInt(e.key, 10) - 1; // 1=0, 2=1, etc.
-      
-      if (optionIndex >= 0 && optionIndex < question.options.length) {
-        e.preventDefault();
-        selectOption(question.options[optionIndex].id);
-      } else if (numIndex >= 0 && numIndex < question.options.length) {
-        e.preventDefault();
-        selectOption(question.options[numIndex].id);
+      // A-F or 1-6 to select option (including "Other") - skip if typing in Other input
+      if (!isTypingInOther) {
+        const optionIndex = keyUpper.charCodeAt(0) - 65; // A=0, B=1, etc.
+        const numIndex = parseInt(e.key, 10) - 1; // 1=0, 2=1, etc.
+        const otherIndex = question.options.length; // "Other" comes after regular options
+        
+        if (optionIndex >= 0 && optionIndex < question.options.length) {
+          e.preventDefault();
+          selectOption(question.options[optionIndex].id);
+        } else if (optionIndex === otherIndex && otherIndex < 6) {
+          // Select "Other" option if within A-F range
+          e.preventDefault();
+          selectOther();
+        } else if (numIndex >= 0 && numIndex < question.options.length) {
+          e.preventDefault();
+          selectOption(question.options[numIndex].id);
+        } else if (numIndex === otherIndex && otherIndex < 6) {
+          // Select "Other" with number key
+          e.preventDefault();
+          selectOther();
+        }
       }
 
-      // Enter to continue/submit
+      // Enter to continue/submit (works from anywhere, including Other input)
       if (e.key === 'Enter' && !continueBtn.disabled) {
         e.preventDefault();
         continueOrSubmit();
       }
 
-      // S to skip current question
-      if (keyUpper === 'S') {
+      // S to skip current question - skip if typing in Other input
+      if (keyUpper === 'S' && !isTypingInOther) {
         e.preventDefault();
         skip();
       }

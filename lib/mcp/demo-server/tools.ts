@@ -29,7 +29,7 @@ export function registerDemoTools(server: McpServer): void {
 
   server.tool(
     "ask-user-questions",
-    "Ask the user multiple-choice questions and wait for their response. Each question can have 1-6 options. Users can also provide an 'Other' text response.",
+    "Ask the user multiple-choice questions and wait for their response. Each question can have 1-5 options. For flexibility, an 'Other' option is automatically added for custom text input so no need to include a choice for 'Other' option.",
     {
       questions: z
         .array(
@@ -44,7 +44,7 @@ export function registerDemoTools(server: McpServer): void {
                 })
               )
               .min(1)
-              .max(6)
+              .max(5)
               .describe("Available answer options"),
           })
         )

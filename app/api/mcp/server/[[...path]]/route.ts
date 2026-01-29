@@ -25,7 +25,7 @@ const TOOLS = [
   {
     name: "ask-user-questions",
     description:
-      "Ask the user multiple-choice questions and wait for their response. Each question can have 1-6 options. Users can also provide an 'Other' text response.",
+      "Ask the user multiple-choice questions and wait for their response. Each question can have 1-5 options, and an 'Other' option with text input is automatically added for custom responses.",
     inputSchema: {
       type: "object",
       properties: {
@@ -41,8 +41,8 @@ const TOOLS = [
               options: {
                 type: "array",
                 minItems: 1,
-                maxItems: 6,
-                description: "Available answer options",
+                maxItems: 5,
+                description: "Available answer options (an 'Other' option is automatically added)",
                 items: {
                   type: "object",
                   properties: {
