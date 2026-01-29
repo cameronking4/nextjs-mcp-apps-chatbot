@@ -13,34 +13,7 @@ async function proxy(request: NextRequest) {
     return new Response("pong", { status: 200 });
   }
 
-  // Handle CORS preflight for MCP endpoints
-  if (pathname.startsWith("/api/mcp/")) {
-    if (request.method === "OPTIONS") {
-      return new NextResponse(null, {
-        status: 204,
-        headers: {
-          "Access-Control-Allow-Origin": "*",
-          "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
-          "Access-Control-Max-Age": "86400",
-        },
-      });
-    }
-
-    // MCP endpoints are publicly accessible
-    const response = NextResponse.next();
-    response.headers.set("Access-Control-Allow-Origin", "*");
-    response.headers.set(
-      "Access-Control-Allow-Methods",
-      "GET, POST, PUT, DELETE, OPTIONS"
-    );
-    response.headers.set(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization"
-    );
-    return response;
-  }
-
+  // Auth routes are handled by NextAuth
   if (pathname.startsWith("/api/auth")) {
     return NextResponse.next();
   }
@@ -75,7 +48,6 @@ export const config = {
   matcher: [
     "/",
     "/chat/:id",
-    "/api/:path*",
     "/login",
     "/register",
 
@@ -84,7 +56,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico, sitemap.xml, robots.txt (metadata files)
+     * - api/mcp (MCP endpoints - publicly accessible)
      */
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api/mcp).*)",
   ],
 };
