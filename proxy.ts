@@ -92,5 +92,5 @@ const config = {
   ],
 };
 
-// Export as middleware for Next.js
-export { proxy as middleware, config };
+// Export as proxy for Next.js
+export { proxy, config };
