@@ -74,7 +74,10 @@ async function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
-const config = {
+// Export as proxy for Next.js
+export { proxy };
+
+export const config = {
   matcher: [
     "/",
     "/chat/:id",
@@ -91,6 +94,3 @@ const config = {
     "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
   ],
 };
-
-// Export as proxy for Next.js
-export { proxy, config };
