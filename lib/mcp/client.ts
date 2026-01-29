@@ -124,11 +124,19 @@ class MCPClientManager {
     // Handle relative URLs
     let baseUrl: string;
     if (typeof window !== "undefined") {
+      // Client-side: use browser's origin
       baseUrl = window.location.origin;
     } else {
-      // Server-side: use localhost. Default to port 3000 for Next.js dev
-      const port = process.env.PORT ?? "3000";
-      baseUrl = `http://localhost:${port}`;
+      // Server-side: check for Vercel deployment URL first
+      if (process.env.VERCEL_URL) {
+        // VERCEL_URL doesn't include protocol, add https for production/preview
+        const protocol = process.env.VERCEL_ENV === "development" ? "http" : "https";
+        baseUrl = `${protocol}://${process.env.VERCEL_URL}`;
+      } else {
+        // Local development: use localhost
+        const port = process.env.PORT ?? "3000";
+        baseUrl = `http://localhost:${port}`;
+      }
     }
 
     return url.startsWith("/") ? `${baseUrl}${url}` : `${baseUrl}/${url}`;
