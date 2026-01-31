@@ -1,0 +1,59 @@
+{
+  "sectors": [
+    {
+      "id": "technology",
+      "name": "Technology",
+      "industries": ["Software", "Hardware", "Semiconductors", "Internet Services", "IT Services"]
+    },
+    {
+      "id": "financials",
+      "name": "Financials",
+      "industries": ["Banks", "Insurance", "Asset Management", "Capital Markets", "Consumer Finance"]
+    },
+    {
+      "id": "healthcare",
+      "name": "Healthcare",
+      "industries": ["Pharmaceuticals", "Biotechnology", "Medical Devices", "Healthcare Services", "Health Insurance"]
+    },
+    {
+      "id": "consumer_discretionary",
+      "name": "Consumer Discretionary",
+      "industries": ["Retail", "Automobiles", "Hotels & Restaurants", "Media", "Apparel"]
+    },
+    {
+      "id": "consumer_staples",
+      "name": "Consumer Staples",
+      "industries": ["Food & Beverage", "Household Products", "Personal Products", "Tobacco", "Food Retail"]
+    },
+    {
+      "id": "energy",
+      "name": "Energy",
+      "industries": ["Oil & Gas", "Energy Equipment", "Renewable Energy", "Coal", "Pipelines"]
+    },
+    {
+      "id": "industrials",
+      "name": "Industrials",
+      "industries": ["Aerospace & Defense", "Machinery", "Transportation", "Construction", "Electrical Equipment"]
+    },
+    {
+      "id": "materials",
+      "name": "Materials",
+      "industries": ["Chemicals", "Metals & Mining", "Paper & Forest", "Construction Materials", "Containers"]
+    },
+    {
+      "id": "utilities",
+      "name": "Utilities",
+      "industries": ["Electric Utilities", "Gas Utilities", "Water Utilities", "Multi-Utilities", "Renewable Utilities"]
+    },
+    {
+      "id": "real_estate",
+      "name": "Real Estate",
+      "industries": ["REITs", "Real Estate Services", "Real Estate Development", "Property Management"]
+    },
+    {
+      "id": "communication_services",
+      "name": "Communication Services",
+      "industries": ["Telecom", "Media & Entertainment", "Interactive Media", "Advertising", "Publishing"]
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "earnings": [
+    {"id": "earn-001", "ticker": "AAPL", "company": "Apple Inc.", "eventTime": "2026-02-05T21:30:00Z", "estimate": 2.12, "actual": null, "surprise": null, "quarter": "Q1 2026"},
+    {"id": "earn-002", "ticker": "MSFT", "company": "Microsoft Corporation", "eventTime": "2026-02-04T21:00:00Z", "estimate": 2.95, "actual": null, "surprise": null, "quarter": "Q2 2026"},
+    {"id": "earn-003", "ticker": "GOOGL", "company": "Alphabet Inc.", "eventTime": "2026-02-06T21:00:00Z", "estimate": 1.85, "actual": null, "surprise": null, "quarter": "Q4 2025"},
+    {"id": "earn-004", "ticker": "AMZN", "company": "Amazon.com Inc.", "eventTime": "2026-02-07T21:00:00Z", "estimate": 1.42, "actual": null, "surprise": null, "quarter": "Q4 2025"},
+    {"id": "earn-005", "ticker": "META", "company": "Meta Platforms Inc.", "eventTime": "2026-02-05T21:00:00Z", "estimate": 5.12, "actual": null, "surprise": null, "quarter": "Q4 2025"},
+    {"id": "earn-006", "ticker": "NVDA", "company": "NVIDIA Corporation", "eventTime": "2026-02-28T21:00:00Z", "estimate": 5.85, "actual": null, "surprise": null, "quarter": "Q4 2026"},
+    {"id": "earn-007", "ticker": "TSLA", "company": "Tesla Inc.", "eventTime": "2026-01-29T21:00:00Z", "estimate": 0.72, "actual": 0.68, "surprise": -5.56, "quarter": "Q4 2025"},
+    {"id": "earn-008", "ticker": "JPM", "company": "JPMorgan Chase & Co.", "eventTime": "2026-01-17T12:00:00Z", "estimate": 4.15, "actual": 4.42, "surprise": 6.51, "quarter": "Q4 2025"},
+    {"id": "earn-009", "ticker": "V", "company": "Visa Inc.", "eventTime": "2026-02-06T21:00:00Z", "estimate": 2.58, "actual": null, "surprise": null, "quarter": "Q1 2026"},
+    {"id": "earn-010", "ticker": "JNJ", "company": "Johnson & Johnson", "eventTime": "2026-02-04T11:00:00Z", "estimate": 2.28, "actual": null, "surprise": null, "quarter": "Q4 2025"},
+    {"id": "earn-011", "ticker": "UNH", "company": "UnitedHealth Group", "eventTime": "2026-02-11T11:00:00Z", "estimate": 6.45, "actual": null, "surprise": null, "quarter": "Q4 2025"},
+    {"id": "earn-012", "ticker": "XOM", "company": "Exxon Mobil", "eventTime": "2026-02-07T11:00:00Z", "estimate": 1.92, "actual": null, "surprise": null, "quarter": "Q4 2025"}
+  ],
+  "economic": [
+    {"id": "econ-001", "event": "FOMC Rate Decision", "eventTime": "2026-02-05T19:00:00Z", "estimate": "4.25%", "actual": null, "previous": "4.50%", "importance": "high"},
+    {"id": "econ-002", "event": "Nonfarm Payrolls", "eventTime": "2026-02-07T13:30:00Z", "estimate": "185K", "actual": null, "previous": "216K", "importance": "high"},
+    {"id": "econ-003", "event": "CPI (YoY)", "eventTime": "2026-02-12T13:30:00Z", "estimate": "2.8%", "actual": null, "previous": "2.9%", "importance": "high"},
+    {"id": "econ-004", "event": "Retail Sales (MoM)", "eventTime": "2026-02-14T13:30:00Z", "estimate": "0.4%", "actual": null, "previous": "0.6%", "importance": "medium"},
+    {"id": "econ-005", "event": "GDP (QoQ)", "eventTime": "2026-02-27T13:30:00Z", "estimate": "2.5%", "actual": null, "previous": "2.8%", "importance": "high"},
+    {"id": "econ-006", "event": "ISM Manufacturing PMI", "eventTime": "2026-02-03T15:00:00Z", "estimate": "49.5", "actual": null, "previous": "49.2", "importance": "medium"},
+    {"id": "econ-007", "event": "Consumer Confidence", "eventTime": "2026-02-25T15:00:00Z", "estimate": "108.5", "actual": null, "previous": "110.7", "importance": "medium"},
+    {"id": "econ-008", "event": "Initial Jobless Claims", "eventTime": "2026-02-06T13:30:00Z", "estimate": "215K", "actual": null, "previous": "207K", "importance": "medium"}
+  ]
+}

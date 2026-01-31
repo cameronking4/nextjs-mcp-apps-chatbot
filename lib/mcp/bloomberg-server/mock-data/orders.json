@@ -1,0 +1,70 @@
+{
+  "orders": [
+    {
+      "id": "ord-001",
+      "ticker": "AAPL",
+      "side": "buy",
+      "type": "market",
+      "qty": 100,
+      "price": null,
+      "filledPrice": 178.50,
+      "status": "filled",
+      "createdAt": "2026-01-31T10:30:00Z",
+      "filledAt": "2026-01-31T10:30:02Z",
+      "fills": [{"qty": 100, "price": 178.50, "time": "2026-01-31T10:30:02Z"}]
+    },
+    {
+      "id": "ord-002",
+      "ticker": "NVDA",
+      "side": "buy",
+      "type": "limit",
+      "qty": 50,
+      "price": 600.00,
+      "filledPrice": null,
+      "status": "pending",
+      "createdAt": "2026-01-31T11:15:00Z",
+      "filledAt": null,
+      "fills": []
+    },
+    {
+      "id": "ord-003",
+      "ticker": "MSFT",
+      "side": "sell",
+      "type": "market",
+      "qty": 25,
+      "price": null,
+      "filledPrice": 378.75,
+      "status": "filled",
+      "createdAt": "2026-01-31T09:45:00Z",
+      "filledAt": "2026-01-31T09:45:01Z",
+      "fills": [{"qty": 25, "price": 378.75, "time": "2026-01-31T09:45:01Z"}]
+    },
+    {
+      "id": "ord-004",
+      "ticker": "TSLA",
+      "side": "buy",
+      "type": "limit",
+      "qty": 75,
+      "price": 240.00,
+      "filledPrice": null,
+      "status": "pending",
+      "createdAt": "2026-01-31T14:00:00Z",
+      "filledAt": null,
+      "fills": []
+    },
+    {
+      "id": "ord-005",
+      "ticker": "GOOGL",
+      "side": "buy",
+      "type": "stop",
+      "qty": 100,
+      "price": 145.00,
+      "filledPrice": null,
+      "status": "pending",
+      "createdAt": "2026-01-31T12:30:00Z",
+      "filledAt": null,
+      "fills": []
+    }
+  ],
+  "nextOrderId": 6
+}

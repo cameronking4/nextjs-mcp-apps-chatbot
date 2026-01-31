@@ -106,7 +106,6 @@ Generate ONLY the HTML code, no markdown formatting or code fences.`;
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0.7,
-      maxTokens: 8000,
     });
 
     // Extract HTML if wrapped in markdown code blocks

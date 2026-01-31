@@ -1,0 +1,53 @@
+{
+  "watchlists": [
+    {
+      "id": "wl-001",
+      "name": "Mega Cap Tech",
+      "description": "Top technology companies by market capitalization",
+      "tickers": ["AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA"],
+      "createdAt": "2026-01-15T10:00:00Z",
+      "updatedAt": "2026-01-31T16:00:00Z"
+    },
+    {
+      "id": "wl-002",
+      "name": "Dividend Aristocrats",
+      "description": "High-quality dividend-paying stocks",
+      "tickers": ["JNJ", "PG", "KO", "PEP", "XOM", "CVX", "MCD", "IBM"],
+      "createdAt": "2026-01-10T09:00:00Z",
+      "updatedAt": "2026-01-31T16:00:00Z"
+    },
+    {
+      "id": "wl-003",
+      "name": "AI Leaders",
+      "description": "Companies leading in artificial intelligence",
+      "tickers": ["NVDA", "MSFT", "GOOGL", "META", "AMD", "CRM", "ADBE", "ORCL"],
+      "createdAt": "2026-01-20T14:30:00Z",
+      "updatedAt": "2026-01-31T16:00:00Z"
+    },
+    {
+      "id": "wl-004",
+      "name": "Healthcare Growth",
+      "description": "High-growth healthcare and biotech stocks",
+      "tickers": ["LLY", "UNH", "TMO", "ABBV", "MRK", "PFE", "JNJ"],
+      "createdAt": "2026-01-12T11:00:00Z",
+      "updatedAt": "2026-01-31T16:00:00Z"
+    },
+    {
+      "id": "wl-005",
+      "name": "Financial Services",
+      "description": "Major banks and financial institutions",
+      "tickers": ["JPM", "BAC", "GS", "MS", "WFC", "C", "V"],
+      "createdAt": "2026-01-08T08:30:00Z",
+      "updatedAt": "2026-01-31T16:00:00Z"
+    },
+    {
+      "id": "wl-006",
+      "name": "Consumer Favorites",
+      "description": "Popular consumer brands and retailers",
+      "tickers": ["AMZN", "WMT", "HD", "COST", "NKE", "SBUX", "MCD", "DIS"],
+      "createdAt": "2026-01-05T10:15:00Z",
+      "updatedAt": "2026-01-31T16:00:00Z"
+    }
+  ],
+  "nextId": "wl-007"
+}

@@ -15,15 +15,23 @@ type SuggestedActionsProps = {
 
 function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
   const suggestedActions = [
-    "What are the advantages of using Next.js?",
-    "Write code to demonstrate Dijkstra's algorithm",
-    "Help me write an essay about Silicon Valley",
-    "What is the weather in San Francisco?",
+    // VP Demo: Multi-tool research workflow
+    "Research NVDA: quote, 1Y chart, fundamentals, recent news, and upcoming earnings",
+    // VP Demo: Portfolio building workflow  
+    "Find undervalued tech stocks (P/E < 25, market cap > $100B) and create a watchlist",
+    // VP Demo: Competitive analysis
+    "Compare the Magnificent 7: AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA on key metrics",
+    // VP Demo: Morning briefing workflow
+    "Morning briefing: market snapshot, top movers, and key earnings this week",
+    // VP Demo: Sector deep dive
+    "Tech sector analysis: screen top performers, show sentiment from latest news",
+    // VP Demo: Investment thesis
+    "Investment thesis for AAPL: fundamentals, ratios, compare to MSFT and GOOGL",
   ];
 
   return (
     <div
-      className="grid w-full gap-2 sm:grid-cols-2"
+      className="grid w-full gap-2 sm:grid-cols-2 lg:grid-cols-3"
       data-testid="suggested-actions"
     >
       {suggestedActions.map((suggestedAction, index) => (

@@ -37,10 +37,29 @@ export async function ensureMCPConnections(): Promise<void> {
 }
 
 /**
+ * Check if a tool should be visible to the model
+ * Tools with _meta.ui.visibility: ["app"] are only accessible via UI, not the LLM
+ */
+function isToolVisibleToModel(mcpTool: MCPToolWithServer): boolean {
+  const visibility = (mcpTool._meta as { ui?: { visibility?: string[] } } | undefined)?.ui?.visibility;
+  
+  // If no visibility is specified, default to visible to model
+  if (!visibility || !Array.isArray(visibility)) {
+    return true;
+  }
+  
+  // Tool is visible to model if "model" is in the visibility array
+  // or if the visibility array is empty (default behavior)
+  return visibility.length === 0 || visibility.includes("model");
+}
+
+/**
  * Get all MCP tools from connected servers for use in chat
+ * Filters out app-only tools that should not be visible to the LLM
  */
 export function getMCPToolsForChat(): MCPToolWithServer[] {
-  return mcpClientManager.getAllToolsWithServerInfo();
+  const allTools = mcpClientManager.getAllToolsWithServerInfo();
+  return allTools.filter(isToolVisibleToModel);
 }
 
 /**
@@ -273,11 +292,13 @@ function convertToZodSchema(
 
 /**
  * Create all MCP tool wrappers for connected servers
+ * Only includes tools that are visible to the model (filters out app-only tools)
  */
 export function createAllMCPToolWrappers(
   dataStream: UIMessageStreamWriter
 ): Record<string, ReturnType<typeof createMCPToolWrapper>> {
-  const mcpTools = mcpClientManager.getAllToolsWithServerInfo();
+  // Only get tools visible to the model (not app-only tools)
+  const mcpTools = getMCPToolsForChat();
   const toolWrappers: Record<
     string,
     ReturnType<typeof createMCPToolWrapper>
@@ -294,10 +315,11 @@ export function createAllMCPToolWrappers(
 
 /**
  * Get all MCP tool names for experimental_activeTools
+ * Only includes tools visible to the model
  */
 export function getMCPToolNames(): string[] {
-  const mcpTools = mcpClientManager.getAllToolsWithServerInfo();
-  return mcpTools.map((tool) => `mcp_${tool.serverId}_${tool.name}`);
+  const mcpTools = getMCPToolsForChat();
+  return mcpTools.map((mcpTool) => `mcp_${mcpTool.serverId}_${mcpTool.name}`);
 }
 
 /**

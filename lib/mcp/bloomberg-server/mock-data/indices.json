@@ -1,0 +1,48 @@
+{
+  "indices": [
+    {"symbol": "SPX", "name": "S&P 500", "value": 4927.93, "change": 42.28, "changePercent": 0.87, "open": 4892.50, "high": 4935.25, "low": 4885.75, "previousClose": 4885.65, "ytdChange": 4.25, "lastUpdated": "2026-01-31T16:00:00Z"},
+    {"symbol": "IXIC", "name": "NASDAQ Composite", "value": 15628.04, "change": 185.45, "changePercent": 1.20, "open": 15475.00, "high": 15685.50, "low": 15425.25, "previousClose": 15442.59, "ytdChange": 5.85, "lastUpdated": "2026-01-31T16:00:00Z"},
+    {"symbol": "DJI", "name": "Dow Jones Industrial Average", "value": 38654.42, "change": 218.75, "changePercent": 0.57, "open": 38485.00, "high": 38712.50, "low": 38425.75, "previousClose": 38435.67, "ytdChange": 2.45, "lastUpdated": "2026-01-31T16:00:00Z"},
+    {"symbol": "RUT", "name": "Russell 2000", "value": 2015.83, "change": 28.45, "changePercent": 1.43, "open": 1992.50, "high": 2025.75, "low": 1985.25, "previousClose": 1987.38, "ytdChange": 1.85, "lastUpdated": "2026-01-31T16:00:00Z"},
+    {"symbol": "VIX", "name": "CBOE Volatility Index", "value": 14.25, "change": -0.85, "changePercent": -5.63, "open": 15.20, "high": 15.45, "low": 14.10, "previousClose": 15.10, "ytdChange": -12.45, "lastUpdated": "2026-01-31T16:00:00Z"},
+    {"symbol": "NDX", "name": "NASDAQ 100", "value": 17542.85, "change": 225.45, "changePercent": 1.30, "open": 17350.00, "high": 17598.50, "low": 17295.25, "previousClose": 17317.40, "ytdChange": 6.25, "lastUpdated": "2026-01-31T16:00:00Z"},
+    {"symbol": "NYA", "name": "NYSE Composite", "value": 17285.42, "change": 98.25, "changePercent": 0.57, "open": 17205.00, "high": 17325.50, "low": 17175.25, "previousClose": 17187.17, "ytdChange": 3.15, "lastUpdated": "2026-01-31T16:00:00Z"},
+    {"symbol": "GSPC", "name": "S&P 500 (TR)", "value": 10485.75, "change": 89.45, "changePercent": 0.86, "open": 10405.00, "high": 10512.50, "low": 10385.25, "previousClose": 10396.30, "ytdChange": 4.35, "lastUpdated": "2026-01-31T16:00:00Z"}
+  ],
+  "sectors": [
+    {"name": "Technology", "change": 1.85, "leaders": ["NVDA", "AMD", "CRM"], "laggards": ["INTC", "CSCO"]},
+    {"name": "Healthcare", "change": 1.45, "leaders": ["LLY", "UNH", "TMO"], "laggards": ["PFE", "JNJ"]},
+    {"name": "Financials", "change": 1.52, "leaders": ["GS", "MS", "JPM"], "laggards": ["WFC", "C"]},
+    {"name": "Consumer Discretionary", "change": 0.95, "leaders": ["AMZN", "HD", "NKE"], "laggards": ["TSLA", "DIS"]},
+    {"name": "Communication Services", "change": 1.68, "leaders": ["META", "NFLX", "GOOGL"], "laggards": ["T", "VZ"]},
+    {"name": "Industrials", "change": 1.25, "leaders": ["CAT", "GE", "LMT"], "laggards": ["BA", "RTX"]},
+    {"name": "Consumer Staples", "change": 0.72, "leaders": ["COST", "WMT", "PEP"], "laggards": ["KO", "PG"]},
+    {"name": "Energy", "change": -1.15, "leaders": [], "laggards": ["XOM", "CVX"]},
+    {"name": "Materials", "change": 0.45, "leaders": [], "laggards": []},
+    {"name": "Utilities", "change": 0.28, "leaders": [], "laggards": []},
+    {"name": "Real Estate", "change": 0.65, "leaders": [], "laggards": []}
+  ],
+  "movers": {
+    "gainers": [
+      {"ticker": "NVDA", "name": "NVIDIA Corporation", "price": 614.50, "change": 18.72, "changePercent": 3.14, "volume": 52345000},
+      {"ticker": "AMD", "name": "Advanced Micro Devices", "price": 142.35, "change": 4.25, "changePercent": 3.08, "volume": 45678000},
+      {"ticker": "LLY", "name": "Eli Lilly and Company", "price": 582.45, "change": 15.35, "changePercent": 2.71, "volume": 4234000},
+      {"ticker": "NFLX", "name": "Netflix Inc.", "price": 542.80, "change": 12.35, "changePercent": 2.33, "volume": 5678000},
+      {"ticker": "ORCL", "name": "Oracle Corporation", "price": 118.45, "change": 2.35, "changePercent": 2.02, "volume": 8234000}
+    ],
+    "losers": [
+      {"ticker": "TSLA", "name": "Tesla Inc.", "price": 248.50, "change": -5.25, "changePercent": -2.07, "volume": 89234000},
+      {"ticker": "BA", "name": "The Boeing Company", "price": 215.80, "change": -3.25, "changePercent": -1.48, "volume": 6234000},
+      {"ticker": "INTC", "name": "Intel Corporation", "price": 42.85, "change": -0.65, "changePercent": -1.49, "volume": 32456000},
+      {"ticker": "CVX", "name": "Chevron Corporation", "price": 152.80, "change": -2.10, "changePercent": -1.36, "volume": 8234000},
+      {"ticker": "XOM", "name": "Exxon Mobil Corporation", "price": 104.25, "change": -1.35, "changePercent": -1.28, "volume": 15678000}
+    ],
+    "mostActive": [
+      {"ticker": "TSLA", "name": "Tesla Inc.", "price": 248.50, "change": -5.25, "changePercent": -2.07, "volume": 89234000},
+      {"ticker": "AAPL", "name": "Apple Inc.", "price": 178.72, "change": 2.34, "changePercent": 1.33, "volume": 58234000},
+      {"ticker": "NVDA", "name": "NVIDIA Corporation", "price": 614.50, "change": 18.72, "changePercent": 3.14, "volume": 52345000},
+      {"ticker": "AMD", "name": "Advanced Micro Devices", "price": 142.35, "change": 4.25, "changePercent": 3.08, "volume": 45678000},
+      {"ticker": "AMZN", "name": "Amazon.com Inc.", "price": 178.25, "change": 3.45, "changePercent": 1.97, "volume": 45678000}
+    ]
+  }
+}

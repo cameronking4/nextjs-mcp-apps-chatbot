@@ -55,7 +55,7 @@ export interface MCPServerState {
 }
 
 /**
- * Default MCP servers - includes the built-in demo server
+ * Default MCP servers - includes the built-in demo server and Bloomberg Terminal
  */
 export const DEFAULT_MCP_SERVERS: MCPServerConfig[] = [
   {
@@ -65,6 +65,14 @@ export const DEFAULT_MCP_SERVERS: MCPServerConfig[] = [
     enabled: true,
     description: "Built-in demo server with interactive tools",
     icon: "sparkles",
+  },
+  {
+    id: "bloomberg",
+    name: "Bloomberg Terminal",
+    url: "/api/mcp/bloomberg",
+    enabled: true,
+    description: "Financial data, research, and trading tools",
+    icon: "chart-line",
   },
 ];
 

@@ -16,6 +16,12 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "./ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
 
 // Tool invocation state types
 type ToolState =
@@ -83,6 +89,7 @@ export function MCPToolResult({
   // Default to collapsed when complete, expanded when running
   const isComplete = state === "output-available" || state === "output-denied" || state === "error";
   const [isOpen, setIsOpen] = useState(!isComplete);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [fetchedUiHtml, setFetchedUiHtml] = useState<string | null>(null);
   const [uiLoading, setUiLoading] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
@@ -288,60 +295,129 @@ export function MCPToolResult({
     }
   };
 
+  // Fullscreen dialog content
+  const renderFullscreenContent = () => {
+    if (!actualUiHtml || !serverId) return null;
+    
+    return (
+      <MCPAppHost
+        className="border-0"
+        onSendMessage={onSendMessage}
+        onToolCall={handleToolCall}
+        serverId={serverId}
+        toolInput={input}
+        toolName={displayToolName}
+        toolResult={output}
+        uiHtml={actualUiHtml}
+        uiMeta={{ ...uiMeta, initialHeight: 900 }}
+      />
+    );
+  };
+
   return (
-    <Collapsible
-      className={cn(
-        "w-full max-w-2xl rounded-lg border bg-background",
-        className
-      )}
-      onOpenChange={setIsOpen}
-      open={isOpen}
-    >
-      <CollapsibleTrigger className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted/50">
-        <div className="flex items-center gap-2">
-          <div
-            className={cn(
-              "size-2 rounded-full",
-              state === "output-available" && "bg-green-500",
-              (state === "input-streaming" || state === "input-available") &&
-                "animate-pulse bg-blue-500",
-              (state === "error" || state === "output-denied") && "bg-red-500"
-            )}
-          />
-          <span className="font-medium text-sm">{displayToolName}</span>
-          {serverName && (
-            <Badge className="text-xs" variant="outline">
-              {serverName}
-            </Badge>
-          )}
-          {hasUi && (
-            <Badge className="text-xs" variant="secondary">
-              Interactive
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {getStatusBadge()}
-          <svg
-            className={cn(
-              "size-4 text-muted-foreground transition-transform",
-              isOpen && "rotate-180"
-            )}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              d="M19 9l-7 7-7-7"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-            />
-          </svg>
-        </div>
-      </CollapsibleTrigger>
-      <CollapsibleContent>{renderContent()}</CollapsibleContent>
-    </Collapsible>
+    <>
+      <Collapsible
+        className={cn(
+          "w-full max-w-2xl rounded-lg border bg-background",
+          className
+        )}
+        onOpenChange={setIsOpen}
+        open={isOpen}
+      >
+        <CollapsibleTrigger asChild>
+          <div className="flex w-full cursor-pointer items-center justify-between px-4 py-3 hover:bg-muted/50">
+            <div className="flex items-center gap-2">
+              <div
+                className={cn(
+                  "size-2 rounded-full",
+                  state === "output-available" && "bg-green-500",
+                  (state === "input-streaming" || state === "input-available") &&
+                    "animate-pulse bg-blue-500",
+                  (state === "error" || state === "output-denied") && "bg-red-500"
+                )}
+              />
+              <span className="font-medium text-sm">{displayToolName}</span>
+              {serverName && (
+                <Badge className="text-xs" variant="outline">
+                  {serverName}
+                </Badge>
+              )}
+              {hasUi && (
+                <Badge className="text-xs" variant="secondary">
+                  Interactive
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {getStatusBadge()}
+              {/* Fullscreen button - only show when we have UI and output is available */}
+              {hasUi && state === "output-available" && actualUiHtml && (
+                <button
+                  aria-label="View fullscreen"
+                  className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsFullscreen(true);
+                  }}
+                  type="button"
+                >
+                  <svg
+                    className="size-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                    />
+                  </svg>
+                </button>
+              )}
+              <svg
+                className={cn(
+                  "size-4 text-muted-foreground transition-transform",
+                  isOpen && "rotate-180"
+                )}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  d="M19 9l-7 7-7-7"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                />
+              </svg>
+            </div>
+          </div>
+        </CollapsibleTrigger>
+        <CollapsibleContent>{renderContent()}</CollapsibleContent>
+      </Collapsible>
+
+      {/* Fullscreen Dialog */}
+      <Dialog onOpenChange={setIsFullscreen} open={isFullscreen}>
+        <DialogContent className="flex h-[90vh] max-w-[75vw] flex-col p-0">
+          <DialogHeader className="flex-shrink-0 border-b px-6 py-4">
+            <DialogTitle className="flex items-center gap-2">
+              <div className="size-2 rounded-full bg-green-500" />
+              <span>{displayToolName}</span>
+              {serverName && (
+                <Badge className="text-xs" variant="outline">
+                  {serverName}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 overflow-auto h-full px-4">
+            {renderFullscreenContent()}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
