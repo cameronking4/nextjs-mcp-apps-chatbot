@@ -4,6 +4,7 @@
  * Exposes interactive MCP tools with UI resources:
  * - ask-user-questions: Multiple-choice questions for user input
  * - task-orchestrator: Hierarchical task management for multi-step workflows
+ * - generate-ui: Dynamically generate interactive UIs on-demand using LLMs (generative UX)
  */
 
 import { NextResponse } from "next/server";
@@ -13,6 +14,12 @@ import {
   getOrCreateOrchestrator,
   type TaskStatus,
 } from "@/lib/mcp/demo-server/task-orchestrator";
+import {
+  generateAndStoreUI,
+  getGeneratedUI,
+  isGeneratedUI,
+  type UISpecification,
+} from "@/lib/mcp/demo-server/ui/generative-ui";
 
 const SERVER_INFO = {
   name: "demo-mcp-server",
@@ -131,6 +138,106 @@ const TOOLS = [
       },
     },
   },
+  // Generative UI Tool
+  {
+    name: "generate-ui",
+    description:
+      "Generate an interactive UI on-demand based on a specification. This tool uses AI to create custom HTML interfaces just-in-time, enabling dynamic UX generation without predefined templates. Perfect for creating forms, dashboards, data visualizations, or any custom interactive interface.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        description: {
+          type: "string",
+          description:
+            "A detailed description of the UI to generate. Describe the purpose, components, layout, and behavior.",
+        },
+        title: {
+          type: "string",
+          description: "Optional title for the UI",
+        },
+        components: {
+          type: "array",
+          description:
+            "Optional array of component specifications (buttons, inputs, selects, etc.)",
+          items: {
+            type: "object",
+            properties: {
+              type: {
+                type: "string",
+                enum: [
+                  "button",
+                  "input",
+                  "select",
+                  "textarea",
+                  "card",
+                  "list",
+                  "form",
+                  "custom",
+                ],
+                description: "Type of component",
+              },
+              id: {
+                type: "string",
+                description: "Unique identifier for the component",
+              },
+              label: {
+                type: "string",
+                description: "Label text for the component",
+              },
+              placeholder: {
+                type: "string",
+                description: "Placeholder text (for inputs)",
+              },
+              options: {
+                type: "array",
+                description: "Options for select components",
+                items: {
+                  type: "object",
+                  properties: {
+                    id: { type: "string" },
+                    label: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+        },
+        data: {
+          type: "object",
+          description: "Optional initial data to display in the UI",
+        },
+        layout: {
+          type: "string",
+          enum: ["card", "form", "list", "custom"],
+          description: "Layout style for the UI",
+        },
+        actions: {
+          type: "array",
+          description: "Optional action buttons (submit, cancel, etc.)",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "string" },
+              label: { type: "string" },
+              type: {
+                type: "string",
+                enum: ["submit", "cancel", "custom"],
+              },
+            },
+          },
+        },
+        initialHeight: {
+          type: "number",
+          description: "Optional initial height in pixels (default: 400)",
+        },
+        resizable: {
+          type: "boolean",
+          description: "Whether the UI should be resizable (default: true)",
+        },
+      },
+      required: ["description"],
+    },
+  },
 ];
 
 const RESOURCES = [
@@ -211,10 +318,10 @@ function normalizeQuestions(raw: unknown): Question[] {
   return normalized;
 }
 
-function executeTool(
+async function executeTool(
   name: string,
   args: Record<string, unknown>
-): { content: Array<{ type: string; text: string }>; _meta?: unknown } {
+): Promise<{ content: Array<{ type: string; text: string }>; _meta?: unknown }> {
   switch (name) {
     case "ask-user-questions": {
       const questions = normalizeQuestions(args.questions);
@@ -383,6 +490,57 @@ function executeTool(
       }
     }
 
+    case "generate-ui": {
+      const description = args.description as string;
+      if (!description) {
+        throw new Error("generate-ui requires description parameter");
+      }
+
+      const spec: UISpecification = {
+        description,
+        title: args.title as string | undefined,
+        components: args.components as UISpecification["components"],
+        data: args.data as Record<string, unknown> | undefined,
+        layout: args.layout as UISpecification["layout"],
+        actions: args.actions as UISpecification["actions"],
+        initialHeight: (args.initialHeight as number | undefined) ?? 400,
+        resizable: (args.resizable as boolean | undefined) ?? true,
+      };
+
+      try {
+        const resourceUri = await generateAndStoreUI(spec);
+
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                status: "ui_generated",
+                message: `Generated interactive UI: ${spec.title || "Custom Interface"}`,
+                resourceUri,
+                spec: {
+                  title: spec.title,
+                  description: spec.description,
+                  layout: spec.layout,
+                },
+              }),
+            },
+          ],
+          _meta: {
+            ui: {
+              resourceUri,
+              initialHeight: spec.initialHeight,
+              resizable: spec.resizable,
+            },
+          },
+        };
+      } catch (error) {
+        throw new Error(
+          `Failed to generate UI: ${error instanceof Error ? error.message : "Unknown error"}`
+        );
+      }
+    }
+
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
@@ -391,6 +549,24 @@ function executeTool(
 function readResource(uri: string): {
   contents: Array<{ uri: string; mimeType: string; text: string }>;
 } {
+  // Check if it's a generated UI
+  if (isGeneratedUI(uri)) {
+    const html = getGeneratedUI(uri);
+    if (!html) {
+      throw new Error(`Generated UI not found: ${uri}`);
+    }
+    return {
+      contents: [
+        {
+          uri,
+          mimeType: "text/html",
+          text: html,
+        },
+      ],
+    };
+  }
+
+  // Handle predefined resources
   switch (uri) {
     case "ui://demo/ask-user-questions":
       return {
@@ -417,17 +593,17 @@ function readResource(uri: string): {
   }
 }
 
-function handleJsonRpcRequest(request: {
+async function handleJsonRpcRequest(request: {
   jsonrpc: string;
   id?: string | number;
   method: string;
   params?: Record<string, unknown>;
-}): {
+}): Promise<{
   jsonrpc: string;
   id?: string | number;
   result?: unknown;
   error?: { code: number; message: string };
-} {
+}> {
   const { id, method, params } = request;
 
   try {
@@ -456,7 +632,7 @@ function handleJsonRpcRequest(request: {
           name: string;
           arguments?: Record<string, unknown>;
         };
-        const result = executeTool(toolParams.name, toolParams.arguments ?? {});
+        const result = await executeTool(toolParams.name, toolParams.arguments ?? {});
         return {
           jsonrpc: "2.0",
           id,
@@ -512,11 +688,11 @@ export async function POST(request: Request) {
     const body = await request.json();
 
     if (Array.isArray(body)) {
-      const responses = body.map(handleJsonRpcRequest);
+      const responses = await Promise.all(body.map(handleJsonRpcRequest));
       return NextResponse.json(responses);
     }
 
-    const response = handleJsonRpcRequest(body);
+    const response = await handleJsonRpcRequest(body);
     return NextResponse.json(response);
   } catch {
     return NextResponse.json(
