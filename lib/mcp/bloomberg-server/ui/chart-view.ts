@@ -74,6 +74,29 @@ export function getChartViewHtml(): string {
     .chart-container {
       padding: var(--space-md);
       height: 220px;
+      position: relative;
+    }
+
+    /* Fullscreen mode support */
+    html.fullscreen,
+    html.fullscreen body {
+      height: 100%;
+    }
+
+    html.fullscreen #chart-card {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    html.fullscreen .chart-container {
+      height: auto;
+      flex: 1;
+      min-height: 0;
+    }
+
+    html.fullscreen .chart-stats {
+      flex-shrink: 0;
     }
     
     .chart-svg {

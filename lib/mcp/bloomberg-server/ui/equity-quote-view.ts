@@ -123,6 +123,45 @@ export function getEquityQuoteViewHtml(): string {
       border-radius: var(--radius-sm);
       font-weight: 500;
     }
+    
+    .live-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      color: var(--positive);
+    }
+    
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--positive);
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    
+    .market-closed .live-dot {
+      background: var(--text-muted);
+      animation: none;
+    }
+    
+    .market-closed {
+      color: var(--text-muted);
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    
+    .price-flash {
+      animation: flash 0.3s ease-out;
+    }
+    
+    @keyframes flash {
+      0% { background: rgba(59, 130, 246, 0.3); }
+      100% { background: transparent; }
+    }
   </style>
 </head>
 <body>
@@ -185,7 +224,13 @@ export function getEquityQuoteViewHtml(): string {
     
     <div class="quote-footer">
       <span class="exchange-badge" id="exchange">NASDAQ</span>
-      <span id="last-updated">Updated just now</span>
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span class="live-indicator" id="live-indicator">
+          <span class="live-dot"></span>
+          <span id="live-status">LIVE</span>
+        </span>
+        <span id="last-updated">Updated just now</span>
+      </div>
     </div>
   </div>
 
@@ -193,13 +238,114 @@ export function getEquityQuoteViewHtml(): string {
     ${getBaseScripts()}
     
     let quoteData = null;
+    let currentTicker = null;
+    let refreshInterval = null;
+    const REFRESH_INTERVAL_MS = 5000; // 5 seconds
     
-    function renderQuote(data) {
+    // Check if US market is open (9:30 AM - 4:00 PM ET, Mon-Fri)
+    function isMarketOpen() {
+      const now = new Date();
+      const etOffset = -5; // Eastern Time offset (adjust for DST if needed)
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const et = new Date(utc + (3600000 * etOffset));
+      
+      const day = et.getDay();
+      const hours = et.getHours();
+      const minutes = et.getMinutes();
+      const timeInMinutes = hours * 60 + minutes;
+      
+      // Market hours: 9:30 AM (570 min) to 4:00 PM (960 min), Mon-Fri
+      const isWeekday = day >= 1 && day <= 5;
+      const isDuringHours = timeInMinutes >= 570 && timeInMinutes < 960;
+      
+      return isWeekday && isDuringHours;
+    }
+    
+    function updateLiveIndicator() {
+      const indicator = document.getElementById('live-indicator');
+      const status = document.getElementById('live-status');
+      
+      if (isMarketOpen()) {
+        indicator.classList.remove('market-closed');
+        status.textContent = 'LIVE';
+      } else {
+        indicator.classList.add('market-closed');
+        status.textContent = 'CLOSED';
+      }
+    }
+    
+    async function refreshQuote() {
+      if (!currentTicker) return;
+      
+      try {
+        const response = await fetch('/api/mcp/bloomberg', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            jsonrpc: '2.0',
+            method: 'tools/call',
+            params: {
+              name: 'equity_quote',
+              arguments: { ticker: currentTicker }
+            },
+            id: Date.now()
+          })
+        });
+        
+        const result = await response.json();
+        if (result?.result?.content?.[0]?.text) {
+          const data = JSON.parse(result.result.content[0].text);
+          if (data.ticker && !data.error) {
+            // Check if price changed
+            const priceChanged = quoteData && quoteData.price !== data.price;
+            renderQuote(data, priceChanged);
+          }
+        }
+      } catch (err) {
+        console.error('Error refreshing quote:', err);
+      }
+    }
+    
+    function startRealTimeUpdates() {
+      // Clear any existing interval
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+      }
+      
+      // Update live indicator immediately
+      updateLiveIndicator();
+      
+      // Only start polling if market is open
+      if (isMarketOpen()) {
+        refreshInterval = setInterval(() => {
+          if (isMarketOpen()) {
+            refreshQuote();
+          } else {
+            updateLiveIndicator();
+          }
+        }, REFRESH_INTERVAL_MS);
+      }
+      
+      // Check market status every minute
+      setInterval(updateLiveIndicator, 60000);
+    }
+    
+    function renderQuote(data, flash = false) {
+      const previousPrice = quoteData?.price;
       quoteData = data;
+      currentTicker = data.ticker;
       
       document.getElementById('ticker').textContent = data.ticker;
       document.getElementById('company-name').textContent = data.name;
-      document.getElementById('current-price').textContent = formatCurrency(data.price).replace('$', '');
+      
+      const priceEl = document.getElementById('current-price');
+      priceEl.textContent = formatCurrency(data.price).replace('$', '');
+      
+      // Flash effect on price change
+      if (flash && previousPrice !== data.price) {
+        priceEl.classList.add('price-flash');
+        setTimeout(() => priceEl.classList.remove('price-flash'), 300);
+      }
       
       const changeEl = document.getElementById('price-change');
       const changeClass = getChangeClass(data.change);
@@ -221,6 +367,11 @@ export function getEquityQuoteViewHtml(): string {
       
       if (data.sparkline && data.sparkline.length > 0) {
         renderSparkline(data.sparkline);
+      }
+      
+      // Start real-time updates after first render
+      if (!refreshInterval) {
+        startRealTimeUpdates();
       }
       
       requestAnimationFrame(reportHeight);
@@ -278,6 +429,13 @@ export function getEquityQuoteViewHtml(): string {
       
       if (type === 'mcp:toolInput' && payload?.arguments) {
         // Initial render with input args if available
+      }
+    });
+    
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
       }
     });
   </script>

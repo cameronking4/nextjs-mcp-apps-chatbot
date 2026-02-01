@@ -56,10 +56,10 @@ export function getBaseStyles(): string {
       --space-lg: 16px;
       --space-xl: 24px;
       
-      /* Borders */
-      --radius-sm: 4px;
-      --radius-md: 6px;
-      --radius-lg: 8px;
+      /* Borders - no rounded corners for terminal aesthetic */
+      --radius-sm: 0;
+      --radius-md: 0;
+      --radius-lg: 0;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -91,12 +91,67 @@ export function getBaseStyles(): string {
       }
     }
 
-    body {
+    html, body {
       font-family: var(--font-sans);
       background: var(--bg-primary);
       color: var(--text-primary);
       font-size: 13px;
       line-height: 1.4;
+    }
+
+    /* Fullscreen mode - fill available height */
+    html.fullscreen,
+    html.fullscreen body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    html.fullscreen .card {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    html.fullscreen .card-content {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+    }
+
+    html.fullscreen .card-header,
+    html.fullscreen .card-footer {
+      flex-shrink: 0;
+    }
+
+    html.fullscreen .scroll-container,
+    html.fullscreen .news-list {
+      max-height: none;
+      flex: 1;
+      min-height: 0;
+    }
+
+    /* Make data tables scrollable in fullscreen */
+    html.fullscreen .data-table-container {
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+    }
+
+    /* Generic footer handling */
+    html.fullscreen .card > div:last-child[class*="footer"],
+    html.fullscreen .comparison-footer,
+    html.fullscreen .watchlist-footer,
+    html.fullscreen .news-footer {
+      flex-shrink: 0;
+    }
+
+    /* Generic header handling */
+    html.fullscreen .card > div:first-child[class*="header"],
+    html.fullscreen .comparison-header,
+    html.fullscreen .watchlist-header,
+    html.fullscreen .news-header,
+    html.fullscreen .chart-header {
+      flex-shrink: 0;
     }
 
     body.dark {
@@ -127,7 +182,7 @@ export function getBaseStyles(): string {
     /* Card container */
     .card {
       background: var(--bg-primary);
-      border-radius: var(--radius-md);
+      // border-radius: var(--radius-md);
       overflow: hidden;
     }
 
@@ -578,17 +633,32 @@ export function getBaseScripts(): string {
       }, '*');
     }
 
-    // Initialize theme
+    // Initialize theme and display mode
     function initTheme(theme) {
       document.body.className = theme === 'dark' ? 'dark' : '';
+    }
+
+    function initDisplayMode(displayMode) {
+      if (displayMode === 'fullscreen') {
+        document.documentElement.classList.add('fullscreen');
+      } else {
+        document.documentElement.classList.remove('fullscreen');
+      }
     }
 
     // Listen for messages from parent
     window.addEventListener('message', (event) => {
       const { type, payload } = event.data || {};
       
-      if (type === 'mcp:hostContext' && payload?.theme) {
-        initTheme(payload.theme);
+      if (type === 'mcp:hostContext') {
+        if (payload?.theme) {
+          initTheme(payload.theme);
+        }
+        if (payload?.displayMode) {
+          initDisplayMode(payload.displayMode);
+          // Re-report height after display mode change
+          requestAnimationFrame(reportHeight);
+        }
       }
     });
 

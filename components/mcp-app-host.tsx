@@ -47,6 +47,8 @@ interface MCPAppHostProps {
   onSendMessage?: (text: string) => void;
   /** Additional class names */
   className?: string;
+  /** Whether to fill the available height (for fullscreen mode) */
+  fillHeight?: boolean;
 }
 
 export function MCPAppHost({
@@ -59,6 +61,7 @@ export function MCPAppHost({
   onToolCall,
   onSendMessage,
   className,
+  fillHeight = false,
 }: MCPAppHostProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -183,18 +186,18 @@ export function MCPAppHost({
       );
     }
 
-    // Send theme context
+    // Send theme and display mode context
     iframe.contentWindow.postMessage(
       {
         type: "mcp:hostContext",
         payload: {
           theme: resolvedTheme === "dark" ? "dark" : "light",
-          displayMode: "inline",
+          displayMode: fillHeight ? "fullscreen" : "inline",
         },
       },
       "*"
     );
-  }, [toolInput, toolResult, resolvedTheme]);
+  }, [toolInput, toolResult, resolvedTheme, fillHeight]);
 
   // Handle iframe load
   const handleIframeLoad = useCallback(() => {
@@ -249,7 +252,8 @@ export function MCPAppHost({
 
   return (
     <div
-      className={cn("relative overflow-hidden rounded-lg border", className)}
+      className={cn("relative overflow-hidden border", className)}
+      style={fillHeight ? { height: "100%" } : undefined}
     >
       {!isLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
@@ -265,7 +269,7 @@ export function MCPAppHost({
         ref={iframeRef}
         sandbox="allow-scripts allow-same-origin"
         srcDoc={uiHtml}
-        style={{ height: `${height}px` }}
+        style={{ height: fillHeight ? "100%" : `${height}px` }}
         title={`MCP App: ${toolName}`}
       />
     </div>

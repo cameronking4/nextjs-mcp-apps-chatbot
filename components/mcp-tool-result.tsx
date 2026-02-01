@@ -302,6 +302,7 @@ export function MCPToolResult({
     return (
       <MCPAppHost
         className="border-0"
+        fillHeight
         onSendMessage={onSendMessage}
         onToolCall={handleToolCall}
         serverId={serverId}
@@ -309,7 +310,7 @@ export function MCPToolResult({
         toolName={displayToolName}
         toolResult={output}
         uiHtml={actualUiHtml}
-        uiMeta={{ ...uiMeta, initialHeight: 900 }}
+        uiMeta={uiMeta}
       />
     );
   };
@@ -318,7 +319,7 @@ export function MCPToolResult({
     <>
       <Collapsible
         className={cn(
-          "w-full max-w-2xl rounded-lg border bg-background",
+          "w-full max-w-2xl rounded-sm border bg-background",
           className
         )}
         onOpenChange={setIsOpen}
@@ -412,7 +413,7 @@ export function MCPToolResult({
               )}
             </DialogTitle>
           </DialogHeader>
-          <div className="min-h-0 flex-1 overflow-auto h-full px-4">
+          <div className="min-h-0 flex-1 px-4 pb-4">
             {renderFullscreenContent()}
           </div>
         </DialogContent>

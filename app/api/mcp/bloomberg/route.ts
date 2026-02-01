@@ -21,20 +21,25 @@
  */
 
 import { NextResponse } from "next/server";
+
+// Real data providers (yahoo-finance2 + Finnhub)
 import {
-  getEquity,
-  getEquities,
-  searchEquities,
-  getFundamentals,
-  compareFundamentals,
-  getHistoricalPrices,
-  generateSparklineData,
-  getNews,
-  getNewsArticle,
-  getIndices,
-  getSectorPerformance,
-  getMarketMovers,
-  getMarketSnapshot,
+  getQuote,
+  getQuotes,
+  getFundamentals as getRealFundamentals,
+  getHistoricalPrices as getRealHistoricalPrices,
+  generateSparklineData as getRealSparklineData,
+  searchSecurities,
+  getScreenerResults,
+  getIndices as getRealIndices,
+  screenEquities as screenRealEquities,
+  getCompanyNews,
+  getMarketNews,
+  getEarningsCalendar as getRealEarningsCalendar,
+} from "@/lib/mcp/bloomberg-server/providers";
+
+// Mock data for watchlists, orders (kept as simulated)
+import {
   getWatchlists,
   getWatchlist,
   createWatchlist,
@@ -43,11 +48,7 @@ import {
   getOrder,
   placeOrder,
   cancelOrder,
-  screenEquities,
-  getEarningsCalendar,
-  getEconomicCalendar,
-  compareSecurities,
-  calculateRatios,
+  getSectorPerformance,
 } from "@/lib/mcp/bloomberg-server/mock-data/utils";
 import { getEquityQuoteViewHtml } from "@/lib/mcp/bloomberg-server/ui/equity-quote-view";
 import { getNewsFeedViewHtml } from "@/lib/mcp/bloomberg-server/ui/news-feed-view";
@@ -532,7 +533,7 @@ async function executeTool(
     // Equity Tools
     case "equity_quote": {
       const ticker = args.ticker as string;
-      const equity = getEquity(ticker);
+      const equity = await getQuote(ticker);
       
       if (!equity) {
         return {
@@ -540,7 +541,7 @@ async function executeTool(
         };
       }
       
-      const sparkline = generateSparklineData(ticker);
+      const sparkline = await getRealSparklineData(ticker);
       
       return {
         content: [{ type: "text", text: JSON.stringify({ ...equity, sparkline }) }],
@@ -555,8 +556,10 @@ async function executeTool(
 
     case "equity_fundamentals": {
       const ticker = args.ticker as string;
-      const fundamentals = getFundamentals(ticker);
-      const equity = getEquity(ticker);
+      const [fundamentals, equity] = await Promise.all([
+        getRealFundamentals(ticker),
+        getQuote(ticker),
+      ]);
       
       if (!fundamentals && !equity) {
         return {
@@ -578,8 +581,10 @@ async function executeTool(
     case "equity_historical": {
       const ticker = args.ticker as string;
       const timeframe = (args.timeframe as "1D" | "1W" | "1M" | "1Y") || "1M";
-      const points = getHistoricalPrices(ticker, timeframe);
-      const equity = getEquity(ticker);
+      const [points, equity] = await Promise.all([
+        getRealHistoricalPrices(ticker, timeframe),
+        getQuote(ticker),
+      ]);
       
       return {
         content: [{ type: "text", text: JSON.stringify({ ticker, timeframe, points, equity }) }],
@@ -596,8 +601,10 @@ async function executeTool(
     case "create_chart": {
       const ticker = args.ticker as string;
       const timeframe = (args.timeframe as "1D" | "1W" | "1M" | "1Y") || "1M";
-      const points = getHistoricalPrices(ticker, timeframe);
-      const equity = getEquity(ticker);
+      const [points, equity] = await Promise.all([
+        getRealHistoricalPrices(ticker, timeframe),
+        getQuote(ticker),
+      ]);
       
       return {
         content: [{ type: "text", text: JSON.stringify({ ticker, timeframe, points, equity }) }],
@@ -612,12 +619,17 @@ async function executeTool(
 
     // News Tools
     case "financial_news": {
-      const articles = getNews({
-        ticker: args.ticker as string | undefined,
+      const ticker = args.ticker as string | undefined;
+      const options = {
         sentiment: args.sentiment as "bullish" | "bearish" | "neutral" | "mixed" | undefined,
         importance: args.importance as "high" | "medium" | "low" | undefined,
         limit: (args.limit as number) || 10,
-      });
+      };
+      
+      // Use company news if ticker provided, otherwise market news
+      const articles = ticker
+        ? await getCompanyNews(ticker, options)
+        : await getMarketNews(options);
       
       return {
         content: [{ type: "text", text: JSON.stringify({ articles }) }],
@@ -631,26 +643,26 @@ async function executeTool(
     }
 
     case "news_article": {
-      const article = getNewsArticle(args.id as string);
-      
-      if (!article) {
-        return {
-          content: [{ type: "text", text: JSON.stringify({ error: "Article not found" }) }],
-        };
-      }
-      
+      // News articles from Finnhub don't have full body content
+      // Return a message indicating the limitation
+      const articleId = args.id as string;
       return {
-        content: [{ type: "text", text: JSON.stringify(article) }],
+        content: [{ type: "text", text: JSON.stringify({ 
+          error: "Full article content not available. Please use the article URL to view the full content.",
+          id: articleId,
+        }) }],
       };
     }
 
     // Research Tools
     case "company_research": {
       const ticker = args.ticker as string;
-      const equity = getEquity(ticker);
-      const fundamentals = getFundamentals(ticker);
-      const recentNews = getNews({ ticker, limit: 5 });
-      const earnings = getEarningsCalendar({ ticker });
+      const [equity, fundamentals, recentNews, earnings] = await Promise.all([
+        getQuote(ticker),
+        getRealFundamentals(ticker),
+        getCompanyNews(ticker, { limit: 5 }),
+        getRealEarningsCalendar({ ticker }),
+      ]);
       const upcomingEarnings = earnings.length > 0 ? earnings[0] : null;
       
       if (!equity) {
@@ -680,7 +692,7 @@ async function executeTool(
     }
 
     case "screener": {
-      const results = screenEquities({
+      const results = await screenRealEquities({
         sector: args.sector as string | undefined,
         minMarketCap: args.minMarketCap as number | undefined,
         maxMarketCap: args.maxMarketCap as number | undefined,
@@ -702,7 +714,7 @@ async function executeTool(
     }
 
     case "security_search": {
-      const results = searchEquities(args.query as string);
+      const results = await searchSecurities(args.query as string);
       
       return {
         content: [{ type: "text", text: JSON.stringify({ query: args.query, results }) }],
@@ -711,18 +723,21 @@ async function executeTool(
 
     // Watchlist Tools
     case "watchlist_create": {
+      const tickers = args.tickers as string[];
       const watchlist = createWatchlist(
         args.name as string,
         (args.description as string) || "",
-        args.tickers as string[]
+        tickers
       );
       
-      // Get full watchlist data with prices for UI
-      const watchlistData = getWatchlistWithPrices(watchlist.id);
-      const equitiesWithSparklines = watchlistData?.equities.map(eq => ({
-        ...eq,
-        sparkline: generateSparklineData(eq.ticker),
-      })) || [];
+      // Get real quotes for the tickers
+      const equities = await getQuotes(tickers);
+      const equitiesWithSparklines = await Promise.all(
+        equities.map(async (eq) => ({
+          ...eq,
+          sparkline: await getRealSparklineData(eq.ticker),
+        }))
+      );
       
       return {
         content: [{ type: "text", text: JSON.stringify({ 
@@ -743,21 +758,24 @@ async function executeTool(
       const id = args.id as string | undefined;
       
       if (id) {
-        const data = getWatchlistWithPrices(id);
-        if (!data) {
+        const watchlist = getWatchlist(id);
+        if (!watchlist) {
           return {
             content: [{ type: "text", text: JSON.stringify({ error: "Watchlist not found" }) }],
           };
         }
         
-        // Add sparklines to each equity
-        const equitiesWithSparklines = data.equities.map(eq => ({
-          ...eq,
-          sparkline: generateSparklineData(eq.ticker),
-        }));
+        // Get real quotes for the watchlist tickers
+        const equities = await getQuotes(watchlist.tickers);
+        const equitiesWithSparklines = await Promise.all(
+          equities.map(async (eq) => ({
+            ...eq,
+            sparkline: await getRealSparklineData(eq.ticker),
+          }))
+        );
         
         return {
-          content: [{ type: "text", text: JSON.stringify({ watchlist: data.watchlist, equities: equitiesWithSparklines }) }],
+          content: [{ type: "text", text: JSON.stringify({ watchlist, equities: equitiesWithSparklines }) }],
           _meta: {
             ui: {
               resourceUri: "ui://bloomberg/watchlist",
@@ -773,7 +791,7 @@ async function executeTool(
       };
     }
 
-    // Trading Tools
+    // Trading Tools (SIMULATED - not connected to real broker)
     case "order_place": {
       const order = placeOrder({
         ticker: args.ticker as string,
@@ -784,7 +802,11 @@ async function executeTool(
       });
       
       return {
-        content: [{ type: "text", text: JSON.stringify(order) }],
+        content: [{ type: "text", text: JSON.stringify({ 
+          ...order, 
+          _simulated: true,
+          _note: "This is a simulated order for demonstration purposes only." 
+        }) }],
         _meta: {
           ui: {
             resourceUri: "ui://bloomberg/order-form",
@@ -805,23 +827,31 @@ async function executeTool(
           };
         }
         return {
-          content: [{ type: "text", text: JSON.stringify(order) }],
+          content: [{ type: "text", text: JSON.stringify({ ...order, _simulated: true }) }],
         };
       }
       
       const orders = getOrders(args.status as "pending" | "filled" | "cancelled" | undefined);
       return {
-        content: [{ type: "text", text: JSON.stringify({ orders }) }],
+        content: [{ type: "text", text: JSON.stringify({ orders, _simulated: true }) }],
       };
     }
 
     // Analytics Tools
     case "analytics_compare": {
       const tickers = args.tickers as string[];
-      const data = compareSecurities(tickers);
+      const [equities, fundamentalsList] = await Promise.all([
+        getQuotes(tickers),
+        Promise.all(tickers.map(t => getRealFundamentals(t))),
+      ]);
       
+      // Return data in format expected by comparison view:
+      // { equities: [...], fundamentals: [...] }
       return {
-        content: [{ type: "text", text: JSON.stringify(data) }],
+        content: [{ type: "text", text: JSON.stringify({ 
+          equities, 
+          fundamentals: fundamentalsList 
+        }) }],
         _meta: {
           ui: {
             resourceUri: "ui://bloomberg/comparison",
@@ -833,20 +863,48 @@ async function executeTool(
 
     case "analytics_ratios": {
       const ticker = args.ticker as string;
-      const ratios = calculateRatios(ticker);
-      const equity = getEquity(ticker);
+      const [fundamentals, equity] = await Promise.all([
+        getRealFundamentals(ticker),
+        getQuote(ticker),
+      ]);
       
-      if (!ratios) {
+      if (!fundamentals && !equity) {
         return {
           content: [{ type: "text", text: JSON.stringify({ error: `Ticker ${ticker} not found` }) }],
         };
       }
       
+      // Build ratios from fundamentals
+      const ratios = {
+        ticker,
+        companyName: equity?.name || ticker,
+        valuation: {
+          pe: fundamentals?.pe || equity?.pe || 0,
+          forwardPe: fundamentals?.forwardPe || 0,
+          peg: fundamentals?.peg || 0,
+          priceToBook: fundamentals?.priceToBook || 0,
+          priceToSales: fundamentals?.priceToSales || 0,
+        },
+        profitability: {
+          grossMargin: fundamentals?.grossMargin || 0,
+          operatingMargin: fundamentals?.operatingMargin || 0,
+          netMargin: fundamentals?.netMargin || 0,
+          roe: fundamentals?.roe || 0,
+          roa: fundamentals?.roa || 0,
+        },
+        liquidity: {
+          currentRatio: fundamentals?.currentRatio || 0,
+          quickRatio: fundamentals?.quickRatio || 0,
+          debtToEquity: fundamentals?.debtToEquity || 0,
+        },
+        growth: {
+          revenueGrowth: fundamentals?.revenueGrowth || 0,
+          epsGrowth: fundamentals?.epsGrowth || 0,
+        },
+      };
+      
       return {
-        content: [{ type: "text", text: JSON.stringify({ 
-          ...ratios,
-          companyName: equity?.name || ticker,
-        }) }],
+        content: [{ type: "text", text: JSON.stringify(ratios) }],
         _meta: {
           ui: {
             resourceUri: "ui://bloomberg/ratios",
@@ -858,7 +916,24 @@ async function executeTool(
 
     // Market Overview
     case "market_snapshot": {
-      const snapshot = getMarketSnapshot();
+      const [indices, gainers, losers, mostActive, sectors] = await Promise.all([
+        getRealIndices(),
+        getScreenerResults("day_gainers", 5),
+        getScreenerResults("day_losers", 5),
+        getScreenerResults("most_actives", 5),
+        getSectorPerformance(), // Keep mock for sector performance
+      ]);
+      
+      const snapshot = {
+        indices,
+        sectors,
+        movers: {
+          gainers,
+          losers,
+          mostActive,
+        },
+        lastUpdated: new Date().toISOString(),
+      };
       
       return {
         content: [{ type: "text", text: JSON.stringify(snapshot) }],
@@ -877,10 +952,10 @@ async function executeTool(
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + days);
       
-      // Get all earnings (don't filter by start date to show upcoming events)
-      const rawEarnings = getEarningsCalendar({
+      // Get earnings from Finnhub
+      const rawEarnings = await getRealEarningsCalendar({
         ticker: args.ticker as string | undefined,
-        endDate: endDate.toISOString(),
+        to: endDate.toISOString().split("T")[0],
       });
       
       // Transform to UI-expected format
