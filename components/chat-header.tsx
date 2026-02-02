@@ -6,7 +6,6 @@ import { useWindowSize } from "usehooks-ts";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "./icons";
-import { GetStartedDialog } from "./get-started-dialog";
 import { MCPStatusIndicator } from "./mcp-settings";
 import { useSidebar } from "./ui/sidebar";
 import { VisibilitySelector, type VisibilityType } from "./visibility-selector";
@@ -54,8 +53,6 @@ function PureChatHeader({
       <div className="order-2 md:order-3">
         <MCPStatusIndicator />
       </div>
-
-      <GetStartedDialog />
     </header>
   );
 }

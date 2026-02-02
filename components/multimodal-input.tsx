@@ -42,6 +42,7 @@ import {
   PromptInputTools,
 } from "./elements/prompt-input";
 import { ArrowUpIcon, PaperclipIcon, StopIcon } from "./icons";
+import { GetStartedDialog } from "./get-started-dialog";
 import { PreviewAttachment } from "./preview-attachment";
 import { SuggestedActions } from "./suggested-actions";
 import { Button } from "./ui/button";
@@ -300,11 +301,16 @@ function PureMultimodalInput({
       {messages.length === 0 &&
         attachments.length === 0 &&
         uploadQueue.length === 0 && (
-          <SuggestedActions
-            chatId={chatId}
-            selectedVisibilityType={selectedVisibilityType}
-            sendMessage={sendMessage}
-          />
+          <>
+            <SuggestedActions
+              chatId={chatId}
+              selectedVisibilityType={selectedVisibilityType}
+              sendMessage={sendMessage}
+            />
+            <div className="flex justify-end">
+              <GetStartedDialog />
+            </div>
+          </>
         )}
 
       <input

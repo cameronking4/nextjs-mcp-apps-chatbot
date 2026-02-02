@@ -347,7 +347,7 @@ export function GetStartedDialog() {
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button className="order-3 hidden bg-zinc-900 px-2 text-zinc-50 hover:bg-zinc-800 md:ml-auto md:flex md:h-fit dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200">
+        <Button className="flex h-fit rounded-t-2xl rounded-bl-2xl">
           <BookOpen className="size-4" />
           Get Started
         </Button>

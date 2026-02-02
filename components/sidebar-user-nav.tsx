@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronUp } from "lucide-react";
+import { ChevronUp, Moon, Sun } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import type { User } from "next-auth";
@@ -71,13 +71,23 @@ export function SidebarUserNav({ user }: { user: User }) {
             side="top"
           >
             <DropdownMenuItem
-              className="cursor-pointer"
+              className="cursor-pointer flex items-center gap-2"
               data-testid="user-nav-item-theme"
               onSelect={() =>
                 setTheme(resolvedTheme === "dark" ? "light" : "dark")
               }
             >
-              {`Toggle ${resolvedTheme === "light" ? "dark" : "light"} mode`}
+              {resolvedTheme === "light" ? (
+                <>
+                  <Moon className="size-4" aria-hidden="true" />
+                  <span>Switch to dark mode</span>
+                </>
+              ) : (
+                <>
+                  <Sun className="size-4" aria-hidden="true" />
+                  <span>Switch to light mode</span>
+                </>
+              )}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild data-testid="user-nav-item-auth">
