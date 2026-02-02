@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   BookOpen,
   TrendingUp,
@@ -315,8 +315,16 @@ export function GetStartedDialog() {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCapability, setSelectedCapability] = useState<BloombergCapability | null>(null);
+  const isNavigatingRef = useRef(false);
 
-  const handlePromptClick = (prompt: string) => {
+  const handlePromptClick = (e: React.MouseEvent, prompt: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    // Prevent double-clicks
+    if (isNavigatingRef.current) return;
+    isNavigatingRef.current = true;
+    
     setIsOpen(false);
     setSelectedCapability(null);
     router.push(`/?query=${encodeURIComponent(prompt)}`);
@@ -328,7 +336,10 @@ export function GetStartedDialog() {
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
-    if (!open) {
+    if (open) {
+      // Reset navigation guard when dialog opens
+      isNavigatingRef.current = false;
+    } else {
       setSelectedCapability(null);
     }
   };
@@ -404,7 +415,7 @@ export function GetStartedDialog() {
                     <TableRow
                       key={index}
                       className="border-border/30 cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => handlePromptClick(prompt)}
+                      onClick={(e) => handlePromptClick(e, prompt)}
                     >
                       <TableCell className="py-4">
                         <div className="flex items-center justify-between">

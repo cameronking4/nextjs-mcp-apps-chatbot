@@ -1,15 +1,13 @@
 /**
  * Firecrawl Provider
- * Uses Firecrawl MCP for article scraping and news search
+ * Uses Firecrawl REST API for article scraping and news search
  */
 
 import type { NewsArticle } from "../types";
 import { cache, CACHE_TTL } from "./cache";
 
 const FIRECRAWL_API_KEY = process.env.FIRECRAWL_API_KEY || "";
-const FIRECRAWL_MCP_URL = FIRECRAWL_API_KEY 
-  ? `https://mcp.firecrawl.dev/${FIRECRAWL_API_KEY}/v2/mcp`
-  : "";
+const FIRECRAWL_BASE_URL = "https://api.firecrawl.dev/v1";
 
 // Cache TTL for scraped articles (24 hours)
 const ARTICLE_CACHE_TTL = 24 * 60 * 60 * 1000;
@@ -27,6 +25,7 @@ interface FirecrawlScrapeResult {
       author?: string;
       publishedTime?: string;
       ogImage?: string;
+      sourceURL?: string;
     };
   };
   error?: string;
@@ -56,53 +55,41 @@ export function isFirecrawlConfigured(): boolean {
 }
 
 /**
- * Call Firecrawl MCP endpoint
+ * Call Firecrawl REST API
  */
-async function callFirecrawlMcp<T>(
-  method: string,
-  params: Record<string, unknown>
+async function callFirecrawlApi<T>(
+  endpoint: string,
+  body: Record<string, unknown>
 ): Promise<T | null> {
-  if (!FIRECRAWL_MCP_URL) {
+  if (!FIRECRAWL_API_KEY) {
     console.warn("FIRECRAWL_API_KEY not set, skipping Firecrawl request");
     return null;
   }
 
   try {
-    const response = await fetch(FIRECRAWL_MCP_URL, {
+    const response = await fetch(`${FIRECRAWL_BASE_URL}${endpoint}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": `Bearer ${FIRECRAWL_API_KEY}`,
       },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: Date.now(),
-        method: "tools/call",
-        params: {
-          name: method,
-          arguments: params,
-        },
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
-      console.error(`Firecrawl MCP error: ${response.status} ${response.statusText}`);
+      const errorText = await response.text();
+      console.error(`Firecrawl API error: ${response.status} ${response.statusText}`, errorText);
       return null;
     }
 
     const result = await response.json();
     
     if (result.error) {
-      console.error("Firecrawl MCP error:", result.error);
+      console.error("Firecrawl API error:", result.error);
       return null;
     }
 
-    // Parse the content from MCP response
-    const content = result.result?.content?.[0]?.text;
-    if (content) {
-      return JSON.parse(content) as T;
-    }
-
-    return result.result as T;
+    return result as T;
   } catch (error) {
     console.error("Firecrawl fetch error:", error);
     return null;
@@ -136,13 +123,11 @@ export async function scrapeArticleContent(
   
   if (cached) return cached;
 
-  // Try direct scraping first with stealth proxy for better success rate
-  const result = await callFirecrawlMcp<FirecrawlScrapeResult>("firecrawl_scrape", {
+  // Try direct scraping first
+  const result = await callFirecrawlApi<FirecrawlScrapeResult>("/scrape", {
     url,
     formats: ["markdown"],
     onlyMainContent: true,
-    maxAge: 86400000, // 24h cache on Firecrawl side
-    proxy: "stealth", // Use stealth proxy for better success with paywalled sites
   });
 
   if (result?.success && result.data?.markdown) {
@@ -183,11 +168,10 @@ async function searchAndScrapeByHeadline(headline: string): Promise<{
   imageUrl?: string;
   sourceUrl?: string;
 } | null> {
-  // Search for the article with news sources
-  const searchResult = await callFirecrawlMcp<FirecrawlSearchResult>("firecrawl_search", {
+  // Search for the article
+  const searchResult = await callFirecrawlApi<FirecrawlSearchResult>("/search", {
     query: `"${headline}"`,
     limit: 3,
-    sources: [{ type: "news" }],
     scrapeOptions: {
       formats: ["markdown"],
       onlyMainContent: true,
@@ -216,7 +200,35 @@ async function searchAndScrapeByHeadline(headline: string): Promise<{
 }
 
 /**
- * Search for news articles using Firecrawl
+ * Quality financial news sources for search queries
+ */
+const QUALITY_NEWS_SOURCES = [
+  "reuters.com",
+  "bloomberg.com",
+  "cnbc.com",
+  "wsj.com",
+  "ft.com",
+  "marketwatch.com",
+  "yahoo.com/finance",
+  "seekingalpha.com",
+  "investopedia.com",
+  "barrons.com",
+  "fool.com",
+  "thestreet.com",
+  "benzinga.com",
+  "investing.com",
+  "finance.yahoo.com",
+];
+
+/**
+ * Build site filter for search queries
+ */
+function buildSiteFilter(sites: string[] = QUALITY_NEWS_SOURCES): string {
+  return sites.map(s => `site:${s}`).join(" OR ");
+}
+
+/**
+ * Search for news articles using Firecrawl with improved query building
  */
 export async function searchNews(
   query: string,
@@ -224,85 +236,249 @@ export async function searchNews(
     limit?: number;
     scrapeContent?: boolean;
     tickers?: string[];
+    includeGeneral?: boolean;
   }
 ): Promise<NewsArticle[]> {
-  const limit = options?.limit || 15;
+  const limit = options?.limit || 25; // Increased default from 15 to 25
   
-  // Build search query with ticker context
+  // Build enhanced search query
   let searchQuery = query;
+  
+  // Add ticker context if provided
   if (options?.tickers?.length) {
-    searchQuery = `${query} ${options.tickers.join(" OR ")} stock`;
+    const tickerPart = options.tickers.map(t => `"${t}" OR "${t} stock"`).join(" OR ");
+    searchQuery = `(${query}) (${tickerPart})`;
+  }
+  
+  // Add site filters for quality sources unless doing a general search
+  if (!options?.includeGeneral) {
+    const siteFilter = buildSiteFilter();
+    searchQuery = `${searchQuery} (${siteFilter})`;
   }
   
   const cacheKey = `firecrawl:search:${searchQuery}:${limit}`;
   const cached = cache.get<NewsArticle[]>(cacheKey);
   if (cached) return cached;
 
-  const searchParams: Record<string, unknown> = {
+  // Make multiple search attempts with different strategies
+  const allArticles: NewsArticle[] = [];
+  const seenUrls = new Set<string>();
+  
+  // Strategy 1: Main query with news sources
+  const searchParams1: Record<string, unknown> = {
     query: searchQuery,
-    limit,
-    sources: [{ type: "news" }],
+    limit: Math.ceil(limit * 0.6), // Get 60% from main query
   };
 
-  // Optionally scrape content for each result
   if (options?.scrapeContent) {
-    searchParams.scrapeOptions = {
+    searchParams1.scrapeOptions = {
       formats: ["markdown"],
       onlyMainContent: true,
     };
   }
 
-  const result = await callFirecrawlMcp<FirecrawlSearchResult>("firecrawl_search", searchParams);
-
-  if (!result?.success || !result.data) {
-    return [];
+  const result1 = await callFirecrawlApi<FirecrawlSearchResult>("/search", searchParams1);
+  
+  if (result1?.success && result1.data) {
+    for (const item of result1.data) {
+      if (!seenUrls.has(item.url)) {
+        seenUrls.add(item.url);
+        allArticles.push(createArticleFromSearchResult(item, options?.tickers));
+      }
+    }
+  }
+  
+  // Strategy 2: If we don't have enough results, try a broader query
+  if (allArticles.length < limit) {
+    const remainingLimit = limit - allArticles.length;
+    
+    // Try with just the core query (no site restrictions)
+    const broaderQuery = options?.tickers?.length 
+      ? `${query} ${options.tickers.join(" ")} financial news`
+      : `${query} financial news market`;
+    
+    const searchParams2: Record<string, unknown> = {
+      query: broaderQuery,
+      limit: remainingLimit + 5, // Get a few extra
+    };
+    
+    const result2 = await callFirecrawlApi<FirecrawlSearchResult>("/search", searchParams2);
+    
+    if (result2?.success && result2.data) {
+      for (const item of result2.data) {
+        if (!seenUrls.has(item.url) && allArticles.length < limit) {
+          seenUrls.add(item.url);
+          allArticles.push(createArticleFromSearchResult(item, options?.tickers));
+        }
+      }
+    }
+  }
+  
+  // Strategy 3: If still not enough and we have tickers, try ticker-specific searches
+  if (allArticles.length < limit && options?.tickers?.length) {
+    for (const ticker of options.tickers.slice(0, 2)) { // Limit to first 2 tickers
+      if (allArticles.length >= limit) break;
+      
+      const tickerQuery = `"${ticker}" stock news latest`;
+      const searchParams3: Record<string, unknown> = {
+        query: tickerQuery,
+        limit: 5,
+      };
+      
+      const result3 = await callFirecrawlApi<FirecrawlSearchResult>("/search", searchParams3);
+      
+      if (result3?.success && result3.data) {
+        for (const item of result3.data) {
+          if (!seenUrls.has(item.url) && allArticles.length < limit) {
+            seenUrls.add(item.url);
+            allArticles.push(createArticleFromSearchResult(item, [ticker]));
+          }
+        }
+      }
+    }
   }
 
-  const articles: NewsArticle[] = result.data.map((item, index) => ({
-    id: `firecrawl-search-${Date.now()}-${index}`,
+  // Sort by published date (most recent first)
+  allArticles.sort((a, b) => {
+    const dateA = new Date(a.publishedAt).getTime();
+    const dateB = new Date(b.publishedAt).getTime();
+    return dateB - dateA;
+  });
+
+  const finalArticles = allArticles.slice(0, limit);
+  cache.set(cacheKey, finalArticles, SEARCH_CACHE_TTL);
+  return finalArticles;
+}
+
+/**
+ * Helper to create NewsArticle from search result
+ */
+function createArticleFromSearchResult(
+  item: { url: string; title: string; description?: string; markdown?: string; metadata?: { publishedTime?: string; author?: string; ogImage?: string } },
+  tickers?: string[]
+): NewsArticle {
+  const text = item.title + " " + (item.description || "");
+  return {
+    id: `firecrawl-search-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
     headline: item.title || "Untitled",
     summary: item.description || "",
     body: item.markdown || "",
     source: extractDomain(item.url),
     publishedAt: item.metadata?.publishedTime || new Date().toISOString(),
-    tickers: options?.tickers || extractTickersFromText(item.title + " " + (item.description || "")),
-    sentiment: analyzeSentimentSimple(item.title + " " + (item.description || "")),
+    tickers: tickers || extractTickersFromText(text),
+    sentiment: analyzeSentimentSimple(text),
     sentimentScore: 0,
     tags: ["firecrawl-search"],
-    importance: "medium" as const,
+    importance: determineImportance(item.title, extractDomain(item.url)),
     url: item.url,
     imageUrl: item.metadata?.ogImage,
-  }));
-
-  cache.set(cacheKey, articles, SEARCH_CACHE_TTL);
-  return articles;
+  };
 }
 
 /**
- * Get trending news by category
+ * Determine article importance based on source and content
+ */
+function determineImportance(headline: string, source: string): "high" | "medium" | "low" {
+  const highImportanceSources = ["reuters.com", "bloomberg.com", "wsj.com", "ft.com", "cnbc.com"];
+  const highImportanceKeywords = ["breaking", "earnings", "acquisition", "merger", "fda", "sec", "lawsuit", "ceo", "guidance", "outlook"];
+  
+  const lowerSource = source.toLowerCase();
+  const lowerHeadline = headline.toLowerCase();
+  
+  if (highImportanceSources.some(s => lowerSource.includes(s))) return "high";
+  if (highImportanceKeywords.some(k => lowerHeadline.includes(k))) return "high";
+  
+  return "medium";
+}
+
+/**
+ * Get trending news by category with improved queries
  */
 export async function getTrendingNews(
   category: "all" | "earnings" | "mergers" | "ipo" | "crypto" | "economy" | "fed" | "tech" = "all",
-  limit: number = 20
+  limit: number = 25
 ): Promise<NewsArticle[]> {
-  const categoryQueries: Record<string, string> = {
-    all: "breaking financial news stock market today",
-    earnings: "earnings report quarterly results beat miss EPS",
-    mergers: "merger acquisition deal buyout M&A",
-    ipo: "IPO initial public offering stock debut",
-    crypto: "bitcoin ethereum crypto cryptocurrency market",
-    economy: "inflation GDP jobs report economic data",
-    fed: "federal reserve interest rate FOMC powell",
-    tech: "tech stocks FAANG AI artificial intelligence nvidia",
+  // More comprehensive category queries
+  const categoryQueries: Record<string, string[]> = {
+    all: [
+      "breaking financial news stock market today",
+      "market movers stocks today",
+      "wall street news latest",
+    ],
+    earnings: [
+      "earnings report quarterly results EPS revenue",
+      "company earnings beat miss guidance",
+      "quarterly earnings announcement results",
+    ],
+    mergers: [
+      "merger acquisition deal buyout announcement",
+      "M&A corporate deal acquisition target",
+      "company merger buyout takeover",
+    ],
+    ipo: [
+      "IPO initial public offering stock debut",
+      "company going public IPO filing",
+      "new stock listing IPO price",
+    ],
+    crypto: [
+      "bitcoin ethereum crypto market news",
+      "cryptocurrency price bitcoin rally",
+      "crypto trading blockchain news",
+    ],
+    economy: [
+      "inflation GDP economic data jobs report",
+      "economy unemployment consumer spending",
+      "economic indicators recession growth",
+    ],
+    fed: [
+      "federal reserve interest rate decision FOMC",
+      "fed powell monetary policy inflation",
+      "interest rate hike cut federal reserve",
+    ],
+    tech: [
+      "tech stocks FAANG AI artificial intelligence",
+      "nvidia apple microsoft google amazon stock",
+      "technology sector AI chip semiconductor",
+    ],
   };
 
-  const query = categoryQueries[category] || categoryQueries.all;
+  const queries = categoryQueries[category] || categoryQueries.all;
+  const allArticles: NewsArticle[] = [];
+  const seenUrls = new Set<string>();
   
-  // Add site filters for quality sources
-  const qualitySites = "site:reuters.com OR site:bloomberg.com OR site:cnbc.com OR site:wsj.com OR site:ft.com";
-  const fullQuery = `${query} (${qualitySites})`;
-
-  return searchNews(fullQuery, { limit, scrapeContent: false });
+  // Search with multiple queries in parallel for better coverage
+  const searchPromises = queries.slice(0, 2).map(async (query) => {
+    const perQueryLimit = Math.ceil(limit / 2);
+    return searchNews(query, { 
+      limit: perQueryLimit, 
+      scrapeContent: false,
+      includeGeneral: false,
+    });
+  });
+  
+  const results = await Promise.all(searchPromises);
+  
+  for (const articles of results) {
+    for (const article of articles) {
+      if (!seenUrls.has(article.url)) {
+        seenUrls.add(article.url);
+        allArticles.push(article);
+      }
+    }
+  }
+  
+  // Sort by date and importance
+  allArticles.sort((a, b) => {
+    // Prioritize high importance
+    if (a.importance !== b.importance) {
+      const importanceOrder = { high: 0, medium: 1, low: 2 };
+      return importanceOrder[a.importance] - importanceOrder[b.importance];
+    }
+    // Then by date
+    return new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+  });
+  
+  return allArticles.slice(0, limit);
 }
 
 /**

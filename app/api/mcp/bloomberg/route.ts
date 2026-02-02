@@ -265,7 +265,7 @@ const TOOLS = [
   },
   {
     name: "news_search",
-    description: "Search financial news across the web by keywords. Powered by Firecrawl. Supports search operators like site:, intitle:, -exclude.",
+    description: "Search financial news across the web by keywords. Combines Firecrawl web search with Finnhub news API for comprehensive coverage. Supports search operators like site:, intitle:, -exclude.",
     inputSchema: {
       type: "object",
       properties: {
@@ -276,11 +276,11 @@ const TOOLS = [
         tickers: {
           type: "array",
           items: { type: "string" },
-          description: "Filter results to include these ticker symbols (optional)",
+          description: "Filter results to include these ticker symbols. Also fetches ticker-specific news from Finnhub for better coverage.",
         },
         limit: {
           type: "number",
-          description: "Maximum number of results (default: 15, max: 30)",
+          description: "Maximum number of results (default: 25, max: 50)",
         },
         scrapeContent: {
           type: "boolean",
@@ -299,7 +299,7 @@ const TOOLS = [
   },
   {
     name: "trending_news",
-    description: "Get trending and breaking financial news stories by category. Uses Firecrawl to search top financial news sources.",
+    description: "Get trending and breaking financial news stories by category. Uses multiple search queries across top financial news sources (Reuters, Bloomberg, CNBC, WSJ, etc.) for comprehensive coverage.",
     inputSchema: {
       type: "object",
       properties: {
@@ -310,7 +310,7 @@ const TOOLS = [
         },
         limit: {
           type: "number",
-          description: "Maximum number of articles (default: 20, max: 50)",
+          description: "Maximum number of articles (default: 25, max: 50)",
         },
       },
     },
@@ -845,22 +845,70 @@ async function executeTool(
 
     case "news_search": {
       const query = args.query as string;
-      const limit = Math.min((args.limit as number) || 15, 30);
+      const limit = Math.min((args.limit as number) || 25, 50); // Increased default to 25, max to 50
       const tickers = args.tickers as string[] | undefined;
       const scrapeContent = args.scrapeContent as boolean | undefined;
       
-      if (!isFirecrawlConfigured()) {
+      // Combine multiple sources for better coverage
+      const allArticles: Array<{ id: string; headline: string; summary: string; body: string; source: string; publishedAt: string; tickers: string[]; sentiment: string; sentimentScore?: number; tags: string[]; importance: string; url: string; imageUrl?: string }> = [];
+      const seenUrls = new Set<string>();
+      
+      // Source 1: If tickers provided, also get Finnhub news for those tickers
+      if (tickers?.length) {
+        const finnhubPromises = tickers.slice(0, 3).map(ticker => 
+          getCompanyNews(ticker, { limit: Math.ceil(limit / 3), days: 14 })
+        );
+        const finnhubResults = await Promise.all(finnhubPromises);
+        
+        for (const articles of finnhubResults) {
+          for (const article of articles) {
+            // Filter by query relevance
+            const text = (article.headline + " " + article.summary).toLowerCase();
+            const queryWords = query.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+            const isRelevant = queryWords.some(word => text.includes(word));
+            
+            if (isRelevant && !seenUrls.has(article.url)) {
+              seenUrls.add(article.url);
+              allArticles.push(article);
+            }
+          }
+        }
+      }
+      
+      // Source 2: Firecrawl search (primary source)
+      if (isFirecrawlConfigured()) {
+        const firecrawlLimit = Math.max(limit - allArticles.length, Math.ceil(limit * 0.7));
+        const firecrawlArticles = await searchNews(query, { 
+          limit: firecrawlLimit, 
+          tickers, 
+          scrapeContent,
+          includeGeneral: true, // Include broader search
+        });
+        
+        for (const article of firecrawlArticles) {
+          if (!seenUrls.has(article.url)) {
+            seenUrls.add(article.url);
+            allArticles.push(article);
+          }
+        }
+      } else if (allArticles.length === 0) {
+        // No Firecrawl and no Finnhub results
         return {
           content: [{ type: "text", text: JSON.stringify({ 
-            error: "Firecrawl API key not configured. Please set FIRECRAWL_API_KEY environment variable.",
+            error: "Firecrawl API key not configured and no ticker-specific news available. Please set FIRECRAWL_API_KEY environment variable for broader news search.",
           }) }],
         };
       }
       
-      const articles = await searchNews(query, { limit, tickers, scrapeContent });
+      // Sort by date (most recent first)
+      allArticles.sort((a, b) => 
+        new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+      );
+      
+      const finalArticles = allArticles.slice(0, limit);
       
       // Store URLs for later retrieval
-      for (const article of articles) {
+      for (const article of finalArticles) {
         if (article.url) {
           storeArticleUrl(article.id, article.url);
         }
@@ -868,9 +916,10 @@ async function executeTool(
       
       return {
         content: [{ type: "text", text: JSON.stringify({ 
-          articles,
+          articles: finalArticles,
           query,
-          source: "firecrawl",
+          sources: isFirecrawlConfigured() ? ["finnhub", "firecrawl"] : ["finnhub"],
+          total: finalArticles.length,
         }) }],
         _meta: {
           ui: {
@@ -883,13 +932,39 @@ async function executeTool(
 
     case "trending_news": {
       const category = (args.category as "all" | "earnings" | "mergers" | "ipo" | "crypto" | "economy" | "fed" | "tech") || "all";
-      const limit = Math.min((args.limit as number) || 20, 50);
+      const limit = Math.min((args.limit as number) || 25, 50); // Increased default to 25
       
       if (!isFirecrawlConfigured()) {
+        // Fall back to Finnhub market news if Firecrawl not available
+        const finnhubCategory = category === "all" ? "general" 
+          : category === "crypto" ? "crypto" 
+          : category === "mergers" ? "merger" 
+          : "general";
+        
+        const articles = await getMarketNews({ 
+          limit, 
+          category: finnhubCategory as "general" | "forex" | "crypto" | "merger",
+        });
+        
+        for (const article of articles) {
+          if (article.url) {
+            storeArticleUrl(article.id, article.url);
+          }
+        }
+        
         return {
           content: [{ type: "text", text: JSON.stringify({ 
-            error: "Firecrawl API key not configured. Please set FIRECRAWL_API_KEY environment variable.",
+            articles,
+            category,
+            source: "finnhub",
+            note: "Using Finnhub as Firecrawl API key not configured.",
           }) }],
+          _meta: {
+            ui: {
+              resourceUri: "ui://bloomberg/news-feed",
+              initialHeight: 450,
+            },
+          },
         };
       }
       
@@ -907,6 +982,7 @@ async function executeTool(
           articles,
           category,
           source: "firecrawl-trending",
+          total: articles.length,
         }) }],
         _meta: {
           ui: {
