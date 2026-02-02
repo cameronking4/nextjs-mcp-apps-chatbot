@@ -405,10 +405,24 @@ const PurePreviewMessage = ({
               const mcpMeta = output?._mcpMeta;
               const resultMeta = output?._meta;
 
+              // Only enable side panel for Bloomberg tools
+              const isBloombergTool = serverId === "bloomberg";
+
+              // Handler for sending messages to main chat (non-Bloomberg tools)
+              const handleSendMessage = sendMessage
+                ? (text: string) => {
+                    sendMessage({
+                      role: "user" as const,
+                      parts: [{ type: "text", text }],
+                    });
+                  }
+                : undefined;
+
               return (
                 <div className="w-full max-w-2xl" key={toolCallId}>
                   <MCPToolResult
-                    onOpenSideChat={openSideChat}
+                    onOpenSideChat={isBloombergTool ? openSideChat : undefined}
+                    onSendMessage={isBloombergTool ? undefined : handleSendMessage}
                     part={{
                       toolCallId,
                       toolName: type.replace("tool-", ""),

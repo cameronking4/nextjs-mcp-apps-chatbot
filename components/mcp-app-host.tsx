@@ -43,7 +43,9 @@ interface MCPAppHostProps {
   ) => Promise<unknown>;
   /** Callback when the View wants to update model context */
   onContextUpdate?: (content: unknown[]) => void;
-  /** Callback when the View wants to open a side panel chat with a prompt */
+  /** Callback when the View wants to send a message to the main chat */
+  onSendMessage?: (text: string) => void;
+  /** Callback when the View wants to open a side panel chat with a prompt (Bloomberg only) */
   onOpenSideChat?: (prompt: string) => void;
   /** Additional class names */
   className?: string;
@@ -59,6 +61,7 @@ export function MCPAppHost({
   serverId,
   uiMeta,
   onToolCall,
+  onSendMessage,
   onOpenSideChat,
   className,
   fillHeight = false,
@@ -155,15 +158,21 @@ export function MCPAppHost({
         sendInitialData();
       }
 
-      // Handle send message requests from iframe (opens side panel chat)
-      if (type === "mcp:sendMessage" && payload?.text && onOpenSideChat) {
-        onOpenSideChat(payload.text);
+      // Handle send message requests from iframe
+      // If onOpenSideChat is provided (Bloomberg tools), open side panel
+      // Otherwise, use onSendMessage to add to main chat
+      if (type === "mcp:sendMessage" && payload?.text) {
+        if (onOpenSideChat) {
+          onOpenSideChat(payload.text);
+        } else if (onSendMessage) {
+          onSendMessage(payload.text);
+        }
       }
     };
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [handleToolCall, uiMeta?.resizable, onOpenSideChat]);
+  }, [handleToolCall, uiMeta?.resizable, onOpenSideChat, onSendMessage]);
 
   // Send initial data to iframe
   const sendInitialData = useCallback(() => {

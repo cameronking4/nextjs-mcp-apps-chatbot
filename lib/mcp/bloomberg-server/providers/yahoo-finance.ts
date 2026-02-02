@@ -130,11 +130,16 @@ export async function getFundamentals(
 }
 
 /**
- * Get historical price data
+ * Timeframe type for historical data
+ */
+export type HistoricalTimeframe = "1D" | "1W" | "1M" | "3M" | "6M" | "1Y" | "5Y" | "YTD";
+
+/**
+ * Get historical price data with extended timeframe support
  */
 export async function getHistoricalPrices(
   ticker: string,
-  timeframe: "1D" | "1W" | "1M" | "1Y"
+  timeframe: HistoricalTimeframe
 ): Promise<HistoricalPoint[]> {
   const cacheKey = `historical:${ticker.toUpperCase()}:${timeframe}`;
   const cached = cache.get<HistoricalPoint[]>(cacheKey);
@@ -158,8 +163,24 @@ export async function getHistoricalPrices(
         period1 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
         interval = "1d";
         break;
+      case "3M":
+        period1 = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+        interval = "1d";
+        break;
+      case "6M":
+        period1 = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+        interval = "1d";
+        break;
       case "1Y":
         period1 = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+        interval = "1d";
+        break;
+      case "5Y":
+        period1 = new Date(now.getTime() - 5 * 365 * 24 * 60 * 60 * 1000);
+        interval = "1wk";
+        break;
+      case "YTD":
+        period1 = new Date(now.getFullYear(), 0, 1); // January 1st of current year
         interval = "1d";
         break;
       default:
@@ -186,12 +207,13 @@ export async function getHistoricalPrices(
         volume: q.volume || 0,
       }));
 
+    // Cache TTL based on timeframe
     const ttl =
       timeframe === "1D"
         ? CACHE_TTL.HISTORICAL_1D
         : timeframe === "1W"
           ? CACHE_TTL.HISTORICAL_1W
-          : timeframe === "1M"
+          : timeframe === "1M" || timeframe === "3M" || timeframe === "YTD"
             ? CACHE_TTL.HISTORICAL_1M
             : CACHE_TTL.HISTORICAL_1Y;
 
@@ -200,6 +222,31 @@ export async function getHistoricalPrices(
   } catch (error) {
     console.error(`Yahoo Finance historical error for ${ticker}:`, error);
     return [];
+  }
+}
+
+/**
+ * Get 52-week high/low for a ticker
+ */
+export async function get52WeekRange(ticker: string): Promise<{ high: number; low: number } | null> {
+  const cacheKey = `52week:${ticker.toUpperCase()}`;
+  const cached = cache.get<{ high: number; low: number }>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const quote = await yahooFinance.quote(ticker);
+    if (!quote) return null;
+
+    const result = {
+      high: quote.fiftyTwoWeekHigh || 0,
+      low: quote.fiftyTwoWeekLow || 0,
+    };
+
+    cache.set(cacheKey, result, CACHE_TTL.QUOTE);
+    return result;
+  } catch (error) {
+    console.error(`Yahoo Finance 52-week error for ${ticker}:`, error);
+    return null;
   }
 }
 

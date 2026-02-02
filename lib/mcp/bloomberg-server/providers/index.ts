@@ -15,11 +15,13 @@ export {
   getQuotes,
   getFundamentals,
   getHistoricalPrices,
+  get52WeekRange,
   generateSparklineData,
   searchSecurities,
   getScreenerResults,
   getIndices,
   screenEquities,
+  type HistoricalTimeframe,
 } from "./yahoo-finance";
 
 // Finviz exports (sector screening - no API key needed)

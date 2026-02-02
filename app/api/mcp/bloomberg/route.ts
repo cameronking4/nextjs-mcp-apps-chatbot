@@ -28,6 +28,7 @@ import {
   getQuotes,
   getFundamentals as getRealFundamentals,
   getHistoricalPrices as getRealHistoricalPrices,
+  get52WeekRange,
   generateSparklineData as getRealSparklineData,
   searchSecurities,
   getScreenerResults,
@@ -42,6 +43,7 @@ import {
   searchNews,
   getTrendingNews,
   storeArticleUrl,
+  type HistoricalTimeframe,
 } from "@/lib/mcp/bloomberg-server/providers";
 
 // Mock data for watchlists, orders (kept as simulated)
@@ -124,7 +126,7 @@ const TOOLS = [
   },
   {
     name: "equity_historical",
-    description: "Get historical OHLCV price data for charting. Supports timeframes: 1D, 1W, 1M, 1Y.",
+    description: "Get historical OHLCV price data for charting. Supports timeframes: 1D, 1W, 1M, 3M, 6M, 1Y, 5Y, YTD. Includes volume data, 52-week high/low, and period performance.",
     inputSchema: {
       type: "object",
       properties: {
@@ -134,16 +136,21 @@ const TOOLS = [
         },
         timeframe: {
           type: "string",
-          enum: ["1D", "1W", "1M", "1Y"],
+          enum: ["1D", "1W", "1M", "3M", "6M", "1Y", "5Y", "YTD"],
           description: "Time period for historical data",
         },
+        chartType: {
+          type: "string",
+          enum: ["line", "candlestick"],
+          description: "Chart display type (default: line)",
+        },
       },
-      required: ["ticker", "timeframe"],
+      required: ["ticker"],
     },
     _meta: {
       ui: {
         resourceUri: "ui://bloomberg/chart",
-        initialHeight: 320,
+        initialHeight: 400,
         resizable: true,
       },
     },
@@ -152,7 +159,7 @@ const TOOLS = [
   // Chart Tool
   {
     name: "create_chart",
-    description: "Create an interactive price chart for a stock. Shows price history with hover interactions.",
+    description: "Create an interactive price chart for a stock. Shows price history with volume, hover interactions, and multiple timeframes.",
     inputSchema: {
       type: "object",
       properties: {
@@ -162,7 +169,7 @@ const TOOLS = [
         },
         timeframe: {
           type: "string",
-          enum: ["1D", "1W", "1M", "1Y"],
+          enum: ["1D", "1W", "1M", "3M", "6M", "1Y", "5Y", "YTD"],
           description: "Time period for the chart (default: 1M)",
         },
         type: {
@@ -709,18 +716,50 @@ async function executeTool(
 
     case "equity_historical": {
       const ticker = args.ticker as string;
-      const timeframe = (args.timeframe as "1D" | "1W" | "1M" | "1Y") || "1M";
-      const [points, equity] = await Promise.all([
+      const timeframe = (args.timeframe as HistoricalTimeframe) || "1M";
+      const chartType = (args.chartType as "line" | "candlestick") || "line";
+      
+      const [points, equity, range52Week] = await Promise.all([
         getRealHistoricalPrices(ticker, timeframe),
         getQuote(ticker),
+        get52WeekRange(ticker),
       ]);
       
+      // Calculate period performance
+      let periodChange = 0;
+      let periodChangePercent = 0;
+      if (points.length > 1) {
+        const firstPrice = points[0].close;
+        const lastPrice = points[points.length - 1].close;
+        periodChange = lastPrice - firstPrice;
+        periodChangePercent = ((lastPrice - firstPrice) / firstPrice) * 100;
+      }
+      
+      // Calculate average volume for the period
+      const avgVolume = points.length > 0 
+        ? points.reduce((sum, p) => sum + p.volume, 0) / points.length 
+        : 0;
+      
       return {
-        content: [{ type: "text", text: JSON.stringify({ ticker, timeframe, points, equity }) }],
+        content: [{ type: "text", text: JSON.stringify({ 
+          ticker, 
+          timeframe, 
+          chartType,
+          points, 
+          equity,
+          range52Week,
+          periodStats: {
+            change: periodChange,
+            changePercent: periodChangePercent,
+            avgVolume,
+            high: points.length > 0 ? Math.max(...points.map(p => p.high)) : 0,
+            low: points.length > 0 ? Math.min(...points.map(p => p.low)) : 0,
+          }
+        }) }],
         _meta: {
           ui: {
             resourceUri: "ui://bloomberg/chart",
-            initialHeight: 320,
+            initialHeight: 400,
           },
         },
       };
@@ -729,18 +768,50 @@ async function executeTool(
     // Chart Tool
     case "create_chart": {
       const ticker = args.ticker as string;
-      const timeframe = (args.timeframe as "1D" | "1W" | "1M" | "1Y") || "1M";
-      const [points, equity] = await Promise.all([
+      const timeframe = (args.timeframe as HistoricalTimeframe) || "1M";
+      const chartType = (args.type as "line" | "candlestick" | "area") || "line";
+      
+      const [points, equity, range52Week] = await Promise.all([
         getRealHistoricalPrices(ticker, timeframe),
         getQuote(ticker),
+        get52WeekRange(ticker),
       ]);
       
+      // Calculate period performance
+      let periodChange = 0;
+      let periodChangePercent = 0;
+      if (points.length > 1) {
+        const firstPrice = points[0].close;
+        const lastPrice = points[points.length - 1].close;
+        periodChange = lastPrice - firstPrice;
+        periodChangePercent = ((lastPrice - firstPrice) / firstPrice) * 100;
+      }
+      
+      // Calculate average volume for the period
+      const avgVolume = points.length > 0 
+        ? points.reduce((sum, p) => sum + p.volume, 0) / points.length 
+        : 0;
+      
       return {
-        content: [{ type: "text", text: JSON.stringify({ ticker, timeframe, points, equity }) }],
+        content: [{ type: "text", text: JSON.stringify({ 
+          ticker, 
+          timeframe, 
+          chartType,
+          points, 
+          equity,
+          range52Week,
+          periodStats: {
+            change: periodChange,
+            changePercent: periodChangePercent,
+            avgVolume,
+            high: points.length > 0 ? Math.max(...points.map(p => p.high)) : 0,
+            low: points.length > 0 ? Math.min(...points.map(p => p.low)) : 0,
+          }
+        }) }],
         _meta: {
           ui: {
             resourceUri: "ui://bloomberg/chart",
-            initialHeight: 320,
+            initialHeight: 400,
           },
         },
       };

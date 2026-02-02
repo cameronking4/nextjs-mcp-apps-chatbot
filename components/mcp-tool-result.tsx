@@ -63,7 +63,9 @@ interface MCPToolResultProps {
     toolName: string,
     args: Record<string, unknown>
   ) => Promise<unknown>;
-  /** Callback when the MCP App wants to open a side panel chat */
+  /** Callback when the MCP App wants to send a message to the main chat */
+  onSendMessage?: (text: string) => void;
+  /** Callback when the MCP App wants to open a side panel chat (Bloomberg only) */
   onOpenSideChat?: (prompt: string) => void;
   className?: string;
 }
@@ -71,6 +73,7 @@ interface MCPToolResultProps {
 export function MCPToolResult({
   part,
   onToolCall,
+  onSendMessage,
   onOpenSideChat,
   className,
 }: MCPToolResultProps) {
@@ -225,6 +228,7 @@ export function MCPToolResult({
             <MCPAppHost
               className="border-0"
               onOpenSideChat={onOpenSideChat}
+              onSendMessage={onSendMessage}
               onToolCall={handleToolCall}
               serverId={serverId}
               toolInput={input}
@@ -304,6 +308,7 @@ export function MCPToolResult({
         className="border-0"
         fillHeight
         onOpenSideChat={onOpenSideChat}
+        onSendMessage={onSendMessage}
         onToolCall={handleToolCall}
         serverId={serverId}
         toolInput={input}
