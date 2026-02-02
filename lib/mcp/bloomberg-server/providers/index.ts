@@ -41,6 +41,17 @@ export {
   getBasicMetrics,
 } from "./finnhub";
 
+// Firecrawl exports (article scraping and search - requires API key)
+export {
+  isFirecrawlConfigured,
+  scrapeArticleContent,
+  searchNews,
+  getTrendingNews,
+  storeArticleUrl,
+  getArticleUrl,
+  getArticleById,
+} from "./firecrawl";
+
 // Screener metadata and utilities
 export {
   getSupportedSectors,

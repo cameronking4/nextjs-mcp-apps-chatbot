@@ -66,38 +66,78 @@ async function fetchFinnhub<T>(endpoint: string, params: Record<string, string> 
 }
 
 /**
- * Analyze sentiment from headline/summary text (simple heuristic)
+ * Analyze sentiment from headline/summary text with score
+ * Returns both categorical sentiment and numeric score (-1 to 1)
  */
-function analyzeSentiment(text: string): "bullish" | "bearish" | "neutral" | "mixed" {
+function analyzeSentimentWithScore(text: string): { 
+  sentiment: "bullish" | "bearish" | "neutral" | "mixed"; 
+  score: number;
+} {
   const lowerText = text.toLowerCase();
   
-  const bullishKeywords = [
-    "surge", "soar", "rally", "gain", "rise", "jump", "climb", "bullish",
-    "outperform", "beat", "upgrade", "strong", "growth", "profit", "record",
-    "breakthrough", "innovation", "optimistic", "positive", "buy"
-  ];
+  // Weighted keywords for better sentiment detection
+  const bullishKeywords: Record<string, number> = {
+    "surge": 0.8, "soar": 0.9, "rally": 0.7, "gain": 0.5, "rise": 0.4, 
+    "jump": 0.6, "climb": 0.5, "bullish": 0.9, "outperform": 0.7, 
+    "beat": 0.6, "upgrade": 0.7, "strong": 0.5, "growth": 0.5, 
+    "profit": 0.6, "record": 0.7, "breakthrough": 0.8, "innovation": 0.5,
+    "optimistic": 0.6, "positive": 0.5, "buy": 0.6, "boom": 0.8,
+    "breakout": 0.7, "bullrun": 0.9, "upside": 0.6, "momentum": 0.5
+  };
   
-  const bearishKeywords = [
-    "fall", "drop", "decline", "plunge", "crash", "bearish", "miss",
-    "downgrade", "weak", "loss", "concern", "warning", "risk", "sell",
-    "cut", "layoff", "recession", "negative", "disappointing"
-  ];
+  const bearishKeywords: Record<string, number> = {
+    "fall": 0.5, "drop": 0.6, "decline": 0.5, "plunge": 0.8, "crash": 0.9,
+    "bearish": 0.9, "miss": 0.6, "downgrade": 0.7, "weak": 0.5, 
+    "loss": 0.6, "concern": 0.4, "warning": 0.5, "risk": 0.4, 
+    "sell": 0.6, "cut": 0.5, "layoff": 0.7, "recession": 0.8,
+    "negative": 0.5, "disappointing": 0.6, "slump": 0.7, "tumble": 0.7,
+    "selloff": 0.8, "downturn": 0.7, "crisis": 0.8, "fear": 0.6
+  };
   
+  let bullishScore = 0;
+  let bearishScore = 0;
   let bullishCount = 0;
   let bearishCount = 0;
   
-  for (const word of bullishKeywords) {
-    if (lowerText.includes(word)) bullishCount++;
+  for (const [word, weight] of Object.entries(bullishKeywords)) {
+    if (lowerText.includes(word)) {
+      bullishScore += weight;
+      bullishCount++;
+    }
   }
   
-  for (const word of bearishKeywords) {
-    if (lowerText.includes(word)) bearishCount++;
+  for (const [word, weight] of Object.entries(bearishKeywords)) {
+    if (lowerText.includes(word)) {
+      bearishScore += weight;
+      bearishCount++;
+    }
   }
   
-  if (bullishCount > 0 && bearishCount > 0) return "mixed";
-  if (bullishCount > bearishCount) return "bullish";
-  if (bearishCount > bullishCount) return "bearish";
-  return "neutral";
+  // Calculate normalized score (-1 to 1)
+  const totalScore = bullishScore - bearishScore;
+  const maxPossible = Math.max(bullishScore + bearishScore, 1);
+  const normalizedScore = Math.max(-1, Math.min(1, totalScore / maxPossible));
+  
+  // Determine categorical sentiment
+  let sentiment: "bullish" | "bearish" | "neutral" | "mixed";
+  if (bullishCount > 0 && bearishCount > 0) {
+    sentiment = "mixed";
+  } else if (bullishScore > bearishScore) {
+    sentiment = "bullish";
+  } else if (bearishScore > bullishScore) {
+    sentiment = "bearish";
+  } else {
+    sentiment = "neutral";
+  }
+  
+  return { sentiment, score: Number(normalizedScore.toFixed(2)) };
+}
+
+/**
+ * Legacy function for backward compatibility
+ */
+function analyzeSentiment(text: string): "bullish" | "bearish" | "neutral" | "mixed" {
+  return analyzeSentimentWithScore(text).sentiment;
 }
 
 /**
@@ -126,18 +166,37 @@ export async function getCompanyNews(
     limit?: number;
     sentiment?: "bullish" | "bearish" | "neutral" | "mixed";
     importance?: "high" | "medium" | "low";
+    from?: string; // YYYY-MM-DD format
+    to?: string; // YYYY-MM-DD format
+    days?: number; // Alternative: number of days back
   }
 ): Promise<NewsArticle[]> {
-  const cacheKey = `news:company:${ticker.toUpperCase()}`;
+  // Calculate date range
+  const toDate = options?.to ? new Date(options.to) : new Date();
+  let fromDate: Date;
+  
+  if (options?.from) {
+    fromDate = new Date(options.from);
+  } else if (options?.days) {
+    fromDate = new Date(toDate.getTime() - options.days * 24 * 60 * 60 * 1000);
+  } else {
+    // Default: last 30 days (increased from 7)
+    fromDate = new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+  }
+  
+  const fromStr = fromDate.toISOString().split("T")[0];
+  const toStr = toDate.toISOString().split("T")[0];
+  
+  const cacheKey = `news:company:${ticker.toUpperCase()}:${fromStr}:${toStr}`;
   const cached = cache.get<NewsArticle[]>(cacheKey);
   if (cached) {
     // Apply filters to cached data
     return applyNewsFilters(cached, options);
   }
 
-  // Get news from last 7 days
-  const to = new Date();
-  const from = new Date(to.getTime() - 7 * 24 * 60 * 60 * 1000);
+  // Use calculated date range
+  const to = toDate;
+  const from = fromDate;
   
   const data = await fetchFinnhub<FinnhubNewsItem[]>("/company-news", {
     symbol: ticker.toUpperCase(),
@@ -147,18 +206,24 @@ export async function getCompanyNews(
 
   if (!data || !Array.isArray(data)) return [];
 
-  const articles: NewsArticle[] = data.slice(0, 50).map((item, index) => ({
-    id: `finnhub-${item.id || index}`,
-    headline: item.headline,
-    summary: item.summary,
-    body: "", // Finnhub doesn't provide full body
-    source: item.source,
-    publishedAt: new Date(item.datetime * 1000).toISOString(),
-    tickers: item.related ? item.related.split(",").map(t => t.trim()) : [ticker.toUpperCase()],
-    sentiment: analyzeSentiment(item.headline + " " + item.summary),
-    tags: [item.category].filter(Boolean),
-    importance: determineImportance(item),
-  }));
+  const articles: NewsArticle[] = data.slice(0, 100).map((item, index) => {
+    const sentimentResult = analyzeSentimentWithScore(item.headline + " " + item.summary);
+    return {
+      id: `finnhub-${item.id || index}`,
+      headline: item.headline,
+      summary: item.summary,
+      body: "", // Finnhub doesn't provide full body - use news_article tool to fetch via Firecrawl
+      source: item.source,
+      publishedAt: new Date(item.datetime * 1000).toISOString(),
+      tickers: item.related ? item.related.split(",").map(t => t.trim()) : [ticker.toUpperCase()],
+      sentiment: sentimentResult.sentiment,
+      sentimentScore: sentimentResult.score,
+      tags: [item.category].filter(Boolean),
+      importance: determineImportance(item),
+      url: item.url,
+      imageUrl: item.image || undefined,
+    };
+  });
 
   cache.set(cacheKey, articles, CACHE_TTL.NEWS);
   return applyNewsFilters(articles, options);
@@ -172,32 +237,40 @@ export async function getMarketNews(
     limit?: number;
     sentiment?: "bullish" | "bearish" | "neutral" | "mixed";
     importance?: "high" | "medium" | "low";
+    category?: "general" | "forex" | "crypto" | "merger";
   }
 ): Promise<NewsArticle[]> {
-  const cacheKey = "news:market:general";
+  const category = options?.category || "general";
+  const cacheKey = `news:market:${category}`;
   const cached = cache.get<NewsArticle[]>(cacheKey);
   if (cached) {
     return applyNewsFilters(cached, options);
   }
 
   const data = await fetchFinnhub<FinnhubNewsItem[]>("/news", {
-    category: "general",
+    category,
   });
 
   if (!data || !Array.isArray(data)) return [];
 
-  const articles: NewsArticle[] = data.slice(0, 50).map((item, index) => ({
-    id: `finnhub-market-${item.id || index}`,
-    headline: item.headline,
-    summary: item.summary,
-    body: "",
-    source: item.source,
-    publishedAt: new Date(item.datetime * 1000).toISOString(),
-    tickers: item.related ? item.related.split(",").map(t => t.trim()) : [],
-    sentiment: analyzeSentiment(item.headline + " " + item.summary),
-    tags: ["market", item.category].filter(Boolean),
-    importance: determineImportance(item),
-  }));
+  const articles: NewsArticle[] = data.slice(0, 100).map((item, index) => {
+    const sentimentResult = analyzeSentimentWithScore(item.headline + " " + item.summary);
+    return {
+      id: `finnhub-market-${item.id || index}`,
+      headline: item.headline,
+      summary: item.summary,
+      body: "", // Use news_article tool to fetch via Firecrawl
+      source: item.source,
+      publishedAt: new Date(item.datetime * 1000).toISOString(),
+      tickers: item.related ? item.related.split(",").map(t => t.trim()) : [],
+      sentiment: sentimentResult.sentiment,
+      sentimentScore: sentimentResult.score,
+      tags: ["market", item.category].filter(Boolean),
+      importance: determineImportance(item),
+      url: item.url,
+      imageUrl: item.image || undefined,
+    };
+  });
 
   cache.set(cacheKey, articles, CACHE_TTL.NEWS);
   return applyNewsFilters(articles, options);

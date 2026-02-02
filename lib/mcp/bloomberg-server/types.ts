@@ -87,8 +87,11 @@ export interface NewsArticle {
   publishedAt: string;
   tickers: string[];
   sentiment: 'bullish' | 'bearish' | 'neutral' | 'mixed';
+  sentimentScore?: number; // -1 (bearish) to 1 (bullish)
   tags: string[];
   importance: 'high' | 'medium' | 'low';
+  url: string; // Article URL for reading full content
+  imageUrl?: string; // Thumbnail image
 }
 
 // ============================================

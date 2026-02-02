@@ -22,7 +22,7 @@
 
 import { NextResponse } from "next/server";
 
-// Real data providers (yahoo-finance2 + Finnhub)
+// Real data providers (yahoo-finance2 + Finnhub + Firecrawl)
 import {
   getQuote,
   getQuotes,
@@ -36,6 +36,12 @@ import {
   getCompanyNews,
   getMarketNews,
   getEarningsCalendar as getRealEarningsCalendar,
+  // Firecrawl providers for article scraping and search
+  isFirecrawlConfigured,
+  scrapeArticleContent,
+  searchNews,
+  getTrendingNews,
+  storeArticleUrl,
 } from "@/lib/mcp/bloomberg-server/providers";
 
 // Mock data for watchlists, orders (kept as simulated)
@@ -52,6 +58,7 @@ import {
 } from "@/lib/mcp/bloomberg-server/mock-data/utils";
 import { getEquityQuoteViewHtml } from "@/lib/mcp/bloomberg-server/ui/equity-quote-view";
 import { getNewsFeedViewHtml } from "@/lib/mcp/bloomberg-server/ui/news-feed-view";
+import { getNewsArticleViewHtml } from "@/lib/mcp/bloomberg-server/ui/news-article-view";
 import { getChartViewHtml } from "@/lib/mcp/bloomberg-server/ui/chart-view";
 import { getWatchlistViewHtml } from "@/lib/mcp/bloomberg-server/ui/watchlist-view";
 import { getScreenerViewHtml } from "@/lib/mcp/bloomberg-server/ui/screener-view";
@@ -178,13 +185,13 @@ const TOOLS = [
   // News Tools
   {
     name: "financial_news",
-    description: "Get financial news headlines. Can filter by ticker, sentiment, or importance level.",
+    description: "Get financial news headlines with full details. Can filter by ticker, sentiment, importance, date range, and category. Returns article URLs and images.",
     inputSchema: {
       type: "object",
       properties: {
         ticker: {
           type: "string",
-          description: "Filter news by ticker symbol (optional)",
+          description: "Filter news by ticker symbol (optional). When provided, returns company-specific news.",
         },
         sentiment: {
           type: "string",
@@ -196,32 +203,123 @@ const TOOLS = [
           enum: ["high", "medium", "low"],
           description: "Filter by importance level (optional)",
         },
+        category: {
+          type: "string",
+          enum: ["general", "forex", "crypto", "merger"],
+          description: "News category filter - only applies when no ticker specified (optional)",
+        },
         limit: {
           type: "number",
-          description: "Maximum number of articles to return (default: 10)",
+          description: "Maximum number of articles to return (default: 25, max: 100)",
+        },
+        offset: {
+          type: "number",
+          description: "Number of articles to skip for pagination (default: 0)",
+        },
+        from: {
+          type: "string",
+          description: "Start date in YYYY-MM-DD format (optional)",
+        },
+        to: {
+          type: "string",
+          description: "End date in YYYY-MM-DD format (optional)",
+        },
+        days: {
+          type: "number",
+          description: "Number of days back to fetch news (default: 30). Alternative to from/to.",
         },
       },
     },
     _meta: {
       ui: {
         resourceUri: "ui://bloomberg/news-feed",
-        initialHeight: 380,
+        initialHeight: 450,
         resizable: true,
       },
     },
   },
   {
     name: "news_article",
-    description: "Get full content of a specific news article by ID.",
+    description: "Get full content of a news article by URL. Uses Firecrawl to scrape and extract the main article content. If the URL is blocked, it will search for the article by headline.",
     inputSchema: {
       type: "object",
       properties: {
-        id: {
+        url: {
           type: "string",
-          description: "News article ID",
+          description: "The URL of the news article to fetch full content from",
+        },
+        headline: {
+          type: "string",
+          description: "The article headline (optional, used as fallback if URL scraping fails)",
         },
       },
-      required: ["id"],
+      required: ["url"],
+    },
+    _meta: {
+      ui: {
+        resourceUri: "ui://bloomberg/news-article",
+        initialHeight: 500,
+        resizable: true,
+      },
+    },
+  },
+  {
+    name: "news_search",
+    description: "Search financial news across the web by keywords. Powered by Firecrawl. Supports search operators like site:, intitle:, -exclude.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Search keywords. Supports operators: site:reuters.com, intitle:earnings, -layoffs, \"exact phrase\"",
+        },
+        tickers: {
+          type: "array",
+          items: { type: "string" },
+          description: "Filter results to include these ticker symbols (optional)",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of results (default: 15, max: 30)",
+        },
+        scrapeContent: {
+          type: "boolean",
+          description: "Also fetch full article content for each result (slower, default: false)",
+        },
+      },
+      required: ["query"],
+    },
+    _meta: {
+      ui: {
+        resourceUri: "ui://bloomberg/news-feed",
+        initialHeight: 450,
+        resizable: true,
+      },
+    },
+  },
+  {
+    name: "trending_news",
+    description: "Get trending and breaking financial news stories by category. Uses Firecrawl to search top financial news sources.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        category: {
+          type: "string",
+          enum: ["all", "earnings", "mergers", "ipo", "crypto", "economy", "fed", "tech"],
+          description: "News category to filter by (default: all)",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of articles (default: 20, max: 50)",
+        },
+      },
+    },
+    _meta: {
+      ui: {
+        resourceUri: "ui://bloomberg/news-feed",
+        initialHeight: 450,
+        resizable: true,
+      },
     },
   },
 
@@ -513,6 +611,7 @@ const RESOURCES = [
   { uri: "ui://bloomberg/equity-quote", name: "equity-quote.html", mimeType: "text/html" },
   { uri: "ui://bloomberg/chart", name: "chart.html", mimeType: "text/html" },
   { uri: "ui://bloomberg/news-feed", name: "news-feed.html", mimeType: "text/html" },
+  { uri: "ui://bloomberg/news-article", name: "news-article.html", mimeType: "text/html" },
   { uri: "ui://bloomberg/watchlist", name: "watchlist.html", mimeType: "text/html" },
   { uri: "ui://bloomberg/screener", name: "screener.html", mimeType: "text/html" },
   { uri: "ui://bloomberg/order-form", name: "order-form.html", mimeType: "text/html" },
@@ -620,37 +719,171 @@ async function executeTool(
     // News Tools
     case "financial_news": {
       const ticker = args.ticker as string | undefined;
+      const limit = Math.min((args.limit as number) || 25, 100); // Default 25, max 100
+      const offset = (args.offset as number) || 0;
+      
       const options = {
         sentiment: args.sentiment as "bullish" | "bearish" | "neutral" | "mixed" | undefined,
         importance: args.importance as "high" | "medium" | "low" | undefined,
-        limit: (args.limit as number) || 10,
+        limit: limit + offset, // Fetch enough for pagination
+        from: args.from as string | undefined,
+        to: args.to as string | undefined,
+        days: args.days as number | undefined,
+        category: args.category as "general" | "forex" | "crypto" | "merger" | undefined,
       };
       
       // Use company news if ticker provided, otherwise market news
-      const articles = ticker
+      let articles = ticker
         ? await getCompanyNews(ticker, options)
         : await getMarketNews(options);
       
+      // Apply pagination offset
+      if (offset > 0) {
+        articles = articles.slice(offset, offset + limit);
+      } else {
+        articles = articles.slice(0, limit);
+      }
+      
+      // Store URLs for later retrieval via news_article
+      for (const article of articles) {
+        if (article.url) {
+          storeArticleUrl(article.id, article.url);
+        }
+      }
+      
       return {
-        content: [{ type: "text", text: JSON.stringify({ articles }) }],
+        content: [{ type: "text", text: JSON.stringify({ 
+          articles,
+          pagination: {
+            offset,
+            limit,
+            total: articles.length,
+            hasMore: articles.length === limit,
+          }
+        }) }],
         _meta: {
           ui: {
             resourceUri: "ui://bloomberg/news-feed",
-            initialHeight: 380,
+            initialHeight: 450,
           },
         },
       };
     }
 
     case "news_article": {
-      // News articles from Finnhub don't have full body content
-      // Return a message indicating the limitation
-      const articleId = args.id as string;
+      const url = args.url as string;
+      const headline = args.headline as string | undefined;
+      
+      if (!isFirecrawlConfigured()) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ 
+            error: "Firecrawl API key not configured. Please set FIRECRAWL_API_KEY environment variable.",
+          }) }],
+        };
+      }
+      
+      // Pass headline for fallback search if direct scraping fails
+      const articleContent = await scrapeArticleContent(url, headline);
+      
+      if (!articleContent) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ 
+            error: "Failed to fetch article content. The URL may be blocked by paywall or anti-scraping measures. Try providing the original article URL directly.",
+            url,
+            suggestion: headline ? "Search for this headline manually to find an accessible source." : "Provide the article headline for a search-based fallback.",
+          }) }],
+        };
+      }
+      
       return {
         content: [{ type: "text", text: JSON.stringify({ 
-          error: "Full article content not available. Please use the article URL to view the full content.",
-          id: articleId,
+          url: articleContent.sourceUrl || url,
+          title: articleContent.title,
+          author: articleContent.author,
+          publishedDate: articleContent.publishedDate,
+          imageUrl: articleContent.imageUrl,
+          content: articleContent.content,
         }) }],
+        _meta: {
+          ui: {
+            resourceUri: "ui://bloomberg/news-article",
+            initialHeight: 500,
+          },
+        },
+      };
+    }
+
+    case "news_search": {
+      const query = args.query as string;
+      const limit = Math.min((args.limit as number) || 15, 30);
+      const tickers = args.tickers as string[] | undefined;
+      const scrapeContent = args.scrapeContent as boolean | undefined;
+      
+      if (!isFirecrawlConfigured()) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ 
+            error: "Firecrawl API key not configured. Please set FIRECRAWL_API_KEY environment variable.",
+          }) }],
+        };
+      }
+      
+      const articles = await searchNews(query, { limit, tickers, scrapeContent });
+      
+      // Store URLs for later retrieval
+      for (const article of articles) {
+        if (article.url) {
+          storeArticleUrl(article.id, article.url);
+        }
+      }
+      
+      return {
+        content: [{ type: "text", text: JSON.stringify({ 
+          articles,
+          query,
+          source: "firecrawl",
+        }) }],
+        _meta: {
+          ui: {
+            resourceUri: "ui://bloomberg/news-feed",
+            initialHeight: 450,
+          },
+        },
+      };
+    }
+
+    case "trending_news": {
+      const category = (args.category as "all" | "earnings" | "mergers" | "ipo" | "crypto" | "economy" | "fed" | "tech") || "all";
+      const limit = Math.min((args.limit as number) || 20, 50);
+      
+      if (!isFirecrawlConfigured()) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ 
+            error: "Firecrawl API key not configured. Please set FIRECRAWL_API_KEY environment variable.",
+          }) }],
+        };
+      }
+      
+      const articles = await getTrendingNews(category, limit);
+      
+      // Store URLs for later retrieval
+      for (const article of articles) {
+        if (article.url) {
+          storeArticleUrl(article.id, article.url);
+        }
+      }
+      
+      return {
+        content: [{ type: "text", text: JSON.stringify({ 
+          articles,
+          category,
+          source: "firecrawl-trending",
+        }) }],
+        _meta: {
+          ui: {
+            resourceUri: "ui://bloomberg/news-feed",
+            initialHeight: 450,
+          },
+        },
       };
     }
 
@@ -997,6 +1230,8 @@ function readResource(uri: string): {
       return { contents: [{ uri, mimeType: "text/html", text: getChartViewHtml() }] };
     case "ui://bloomberg/news-feed":
       return { contents: [{ uri, mimeType: "text/html", text: getNewsFeedViewHtml() }] };
+    case "ui://bloomberg/news-article":
+      return { contents: [{ uri, mimeType: "text/html", text: getNewsArticleViewHtml() }] };
     case "ui://bloomberg/watchlist":
       return { contents: [{ uri, mimeType: "text/html", text: getWatchlistViewHtml() }] };
     case "ui://bloomberg/screener":

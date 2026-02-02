@@ -1,7 +1,7 @@
 /**
  * News Feed View - Bloomberg Terminal UI
  * 
- * Displays a compact scrollable news feed with headlines, sources, and timestamps.
+ * Displays a rich news feed with article cards, images, URLs, and sentiment indicators.
  */
 
 import { getBaseHead, getBaseScripts } from './base';
@@ -35,23 +35,55 @@ export function getNewsFeedViewHtml(): string {
     }
     
     .news-list {
-      max-height: 350px;
+      max-height: 420px;
       overflow-y: auto;
+      padding: var(--space-xs);
     }
     
-    .news-item {
-      padding: var(--space-sm) var(--space-md);
-      border-bottom: 1px solid var(--border-subtle);
-      cursor: pointer;
-      transition: background 0.15s ease;
+    .news-card {
+      display: flex;
+      gap: var(--space-sm);
+      padding: var(--space-sm);
+      margin-bottom: var(--space-xs);
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-primary);
+      transition: all 0.15s ease;
     }
     
-    .news-item:hover {
+    .news-card:hover {
       background: var(--bg-secondary);
+      border-color: var(--border);
     }
     
-    .news-item:last-child {
-      border-bottom: none;
+    .news-card.importance-high {
+      border-left: 3px solid var(--accent-orange);
+    }
+    
+    .news-image {
+      flex-shrink: 0;
+      width: 80px;
+      height: 60px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-tertiary);
+      background-size: cover;
+      background-position: center;
+    }
+    
+    .news-image.no-image {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      font-size: 20px;
+    }
+    
+    .news-content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
     
     .news-headline {
@@ -59,18 +91,25 @@ export function getNewsFeedViewHtml(): string {
       font-weight: 500;
       color: var(--text-primary);
       line-height: 1.3;
-      margin-bottom: 4px;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
     }
     
+    .news-headline a {
+      color: inherit;
+      text-decoration: none;
+    }
+    
+    .news-headline a:hover {
+      text-decoration: underline;
+    }
+    
     .news-summary {
       font-size: 11px;
       color: var(--text-secondary);
       line-height: 1.4;
-      margin-bottom: 6px;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
@@ -81,9 +120,10 @@ export function getNewsFeedViewHtml(): string {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: var(--space-sm);
+      gap: 6px;
       font-size: 10px;
       color: var(--text-muted);
+      margin-top: auto;
     }
     
     .news-source {
@@ -92,7 +132,7 @@ export function getNewsFeedViewHtml(): string {
     
     .news-tickers {
       display: flex;
-      gap: 4px;
+      gap: 3px;
     }
     
     .ticker-tag {
@@ -102,6 +142,12 @@ export function getNewsFeedViewHtml(): string {
       font-family: var(--font-mono);
       font-size: 9px;
       font-weight: 600;
+      cursor: pointer;
+    }
+    
+    .ticker-tag:hover {
+      background: var(--accent-blue-bg);
+      color: var(--accent-blue);
     }
     
     .sentiment-badge {
@@ -127,22 +173,43 @@ export function getNewsFeedViewHtml(): string {
       color: var(--text-muted);
     }
     
-    .importance-high .news-headline {
-      font-weight: 600;
+    .sentiment-score {
+      font-size: 9px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
     }
     
-    .importance-high::before {
-      content: '';
-      position: absolute;
-      left: 0;
-      top: 0;
-      bottom: 0;
-      width: 3px;
-      background: var(--accent-orange);
+    .news-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 4px;
     }
     
-    .news-item.importance-high {
-      position: relative;
+    .news-action-btn {
+      padding: 2px 6px;
+      font-size: 9px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-secondary);
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    
+    .news-action-btn:hover {
+      background: var(--bg-tertiary);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+    
+    .news-link {
+      color: var(--accent-blue);
+      text-decoration: none;
+      font-size: 9px;
+    }
+    
+    .news-link:hover {
+      text-decoration: underline;
     }
     
     .empty-state {
@@ -152,26 +219,35 @@ export function getNewsFeedViewHtml(): string {
     }
     
     .news-footer {
-      padding: var(--space-xs) var(--space-md);
+      padding: var(--space-sm) var(--space-md);
       background: var(--bg-secondary);
       border-top: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: var(--space-sm);
     }
     
-    .filter-tags {
-      display: flex;
-      gap: var(--space-xs);
-      flex-wrap: wrap;
-    }
-    
-    .filter-tag {
-      padding: 2px 6px;
-      background: var(--bg-tertiary);
+    .load-more-btn {
+      padding: 4px 12px;
+      font-size: 11px;
       border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    
+    .load-more-btn:hover {
+      background: var(--accent-blue-bg);
+      border-color: var(--accent-blue);
+      color: var(--accent-blue);
+    }
+    
+    .pagination-info {
       font-size: 10px;
-      color: var(--text-secondary);
+      color: var(--text-muted);
     }
   </style>
 </head>
@@ -187,8 +263,8 @@ export function getNewsFeedViewHtml(): string {
     </div>
     
     <div class="news-footer" id="news-footer" style="display: none;">
-      <div class="filter-tags" id="filter-tags"></div>
-      <span class="text-muted text-xs" id="last-updated"></span>
+      <span class="pagination-info" id="pagination-info"></span>
+      <button class="load-more-btn" id="load-more-btn" style="display: none;">Load More</button>
     </div>
   </div>
 
@@ -196,13 +272,17 @@ export function getNewsFeedViewHtml(): string {
     ${getBaseScripts()}
     
     let newsData = [];
-    let filters = {};
+    let pagination = { offset: 0, limit: 25, hasMore: false };
     
-    function renderNews(articles) {
+    function renderNews(articles, paginationData) {
       newsData = articles;
+      if (paginationData) pagination = paginationData;
+      
       const listEl = document.getElementById('news-list');
       const countEl = document.getElementById('news-count');
       const footerEl = document.getElementById('news-footer');
+      const loadMoreBtn = document.getElementById('load-more-btn');
+      const paginationInfo = document.getElementById('pagination-info');
       
       countEl.textContent = articles.length + ' article' + (articles.length !== 1 ? 's' : '');
       
@@ -214,40 +294,85 @@ export function getNewsFeedViewHtml(): string {
       }
       
       listEl.innerHTML = articles.map(article => {
-        const tickerTags = article.tickers.slice(0, 3).map(t => 
-          '<span class="ticker-tag">' + escapeHtml(t) + '</span>'
+        const tickerTags = (article.tickers || []).slice(0, 3).map(t => 
+          '<span class="ticker-tag" data-ticker="' + escapeHtml(t) + '">' + escapeHtml(t) + '</span>'
         ).join('');
         
         const sentimentClass = 'sentiment-' + article.sentiment;
+        const scoreDisplay = article.sentimentScore !== undefined 
+          ? '<span class="sentiment-score">(' + (article.sentimentScore > 0 ? '+' : '') + article.sentimentScore + ')</span>'
+          : '';
         
-        return '<div class="news-item' + (article.importance === 'high' ? ' importance-high' : '') + '" data-id="' + article.id + '">' +
-          '<div class="news-headline">' + escapeHtml(article.headline) + '</div>' +
-          '<div class="news-summary">' + escapeHtml(article.summary) + '</div>' +
-          '<div class="news-meta">' +
-            '<span class="news-source">' + escapeHtml(article.source) + '</span>' +
-            '<span>' + timeAgo(article.publishedAt) + '</span>' +
-            '<span class="sentiment-badge ' + sentimentClass + '">' + article.sentiment + '</span>' +
-            '<div class="news-tickers">' + tickerTags + '</div>' +
+        const imageHtml = article.imageUrl 
+          ? '<div class="news-image" style="background-image: url(' + escapeHtml(article.imageUrl) + ')"></div>'
+          : '<div class="news-image no-image">📰</div>';
+        
+        const headlineHtml = article.url
+          ? '<a href="' + escapeHtml(article.url) + '" target="_blank" rel="noopener">' + escapeHtml(article.headline) + '</a>'
+          : escapeHtml(article.headline);
+        
+        return '<div class="news-card' + (article.importance === 'high' ? ' importance-high' : '') + '" data-id="' + article.id + '" data-url="' + escapeHtml(article.url || '') + '">' +
+          imageHtml +
+          '<div class="news-content">' +
+            '<div class="news-headline">' + headlineHtml + '</div>' +
+            '<div class="news-summary">' + escapeHtml(article.summary || '') + '</div>' +
+            '<div class="news-meta">' +
+              '<span class="news-source">' + escapeHtml(article.source) + '</span>' +
+              '<span>•</span>' +
+              '<span>' + timeAgo(article.publishedAt) + '</span>' +
+              '<span class="sentiment-badge ' + sentimentClass + '">' + article.sentiment + '</span>' +
+              scoreDisplay +
+              (tickerTags ? '<div class="news-tickers">' + tickerTags + '</div>' : '') +
+            '</div>' +
+            '<div class="news-actions">' +
+              (article.url ? '<a href="' + escapeHtml(article.url) + '" target="_blank" rel="noopener" class="news-action-btn">Open Article ↗</a>' : '') +
+              '<button class="news-action-btn read-full-btn" data-id="' + article.id + '">Read Full Content</button>' +
+            '</div>' +
           '</div>' +
         '</div>';
       }).join('');
       
+      // Show footer with pagination
       footerEl.style.display = 'flex';
-      document.getElementById('last-updated').textContent = 'Updated ' + timeAgo(new Date().toISOString());
+      paginationInfo.textContent = 'Showing ' + articles.length + ' articles • Updated ' + timeAgo(new Date().toISOString());
       
-      // Add click handlers
-      listEl.querySelectorAll('.news-item').forEach(item => {
-        item.addEventListener('click', () => {
-          const id = item.getAttribute('data-id');
+      if (pagination.hasMore) {
+        loadMoreBtn.style.display = 'block';
+      } else {
+        loadMoreBtn.style.display = 'none';
+      }
+      
+      // Add click handlers for tickers
+      listEl.querySelectorAll('.ticker-tag').forEach(tag => {
+        tag.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const ticker = tag.getAttribute('data-ticker');
+          sendMessage('Show me the quote for ' + ticker);
+        });
+      });
+      
+      // Add click handlers for read full content
+      listEl.querySelectorAll('.read-full-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const id = btn.getAttribute('data-id');
           const article = newsData.find(a => a.id === id);
-          if (article) {
-            sendMessage('Tell me more about: ' + article.headline);
+          if (article && article.url) {
+            // Include both URL and headline for fallback search
+            sendMessage('Fetch the full article from URL: ' + article.url + ' (headline: "' + article.headline + '")');
+          } else if (article) {
+            sendMessage('Search for and fetch the full article: "' + article.headline + '"');
           }
         });
       });
       
       requestAnimationFrame(reportHeight);
     }
+    
+    // Load more button handler
+    document.getElementById('load-more-btn').addEventListener('click', () => {
+      sendMessage('Load more news articles (offset: ' + (pagination.offset + pagination.limit) + ')');
+    });
     
     // Listen for data
     window.addEventListener('message', (event) => {
@@ -257,9 +382,9 @@ export function getNewsFeedViewHtml(): string {
         try {
           const data = JSON.parse(payload.content[0].text);
           if (data.articles && Array.isArray(data.articles)) {
-            renderNews(data.articles);
+            renderNews(data.articles, data.pagination);
           } else if (Array.isArray(data)) {
-            renderNews(data);
+            renderNews(data, null);
           }
         } catch (err) {
           console.error('Error parsing news data:', err);

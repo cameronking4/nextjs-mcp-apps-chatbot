@@ -74,36 +74,52 @@ const TOOLS = [
       },
     },
   },
-  // Task Orchestrator Tools
+  // Task Orchestrator - Creates and displays a task plan widget (use ONCE to create a plan)
   {
     name: "task-orchestrator",
     description:
-      "Manage a hierarchical task plan for complex, multi-step workflows. Use action 'create_plan' to start a new plan with a root goal, 'add_task' to add subtasks, 'update_task' to change task status/notes/results, and 'get_plan' to retrieve current state. The plan is displayed to the user with a visual progress tracker.",
+      "Create and display a hierarchical task plan for complex, multi-step workflows. Use this tool ONCE at the start to create a plan with a root goal. The plan widget will be displayed to the user and will automatically update as you use task-add and task-update tools. Do NOT call this tool multiple times - use task-add and task-update instead to modify the plan.",
     inputSchema: {
       type: "object",
       properties: {
-        action: {
-          type: "string",
-          enum: ["create_plan", "add_task", "update_task", "get_plan"],
-          description: "The action to perform on the task plan",
-        },
         chatId: {
           type: "string",
           description: "Optional chat ID to scope the plan. If not provided, uses a shared default plan.",
         },
-        // create_plan params
         rootGoal: {
           type: "string",
-          description: "The root goal for the plan (required for create_plan action)",
+          description: "The root goal for the plan (required)",
         },
-        // add_task params
+      },
+      required: ["rootGoal"],
+    },
+    _meta: {
+      ui: {
+        resourceUri: "ui://demo/task-orchestrator",
+        initialHeight: 400,
+        resizable: true,
+      },
+    },
+  },
+  // Task Add - Adds a task to the existing plan (no UI rendered)
+  {
+    name: "task-add",
+    description:
+      "Add a task to an existing task plan. The task orchestrator widget will automatically update to show the new task. Use this after creating a plan with task-orchestrator.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        chatId: {
+          type: "string",
+          description: "Optional chat ID to scope the plan. Must match the chatId used when creating the plan.",
+        },
         taskId: {
           type: "string",
-          description: "Unique identifier for the task (required for add_task and update_task)",
+          description: "Unique identifier for the task",
         },
         title: {
           type: "string",
-          description: "Task title (required for add_task, optional for update_task)",
+          description: "Task title",
         },
         description: {
           type: "string",
@@ -111,30 +127,78 @@ const TOOLS = [
         },
         parentId: {
           type: "string",
-          description: "Parent task ID to create a subtask (optional for add_task)",
+          description: "Parent task ID to create a subtask (optional)",
         },
-        // update_task params
         status: {
           type: "string",
           enum: ["pending", "in_progress", "completed", "failed", "skipped"],
-          description: "Task status (optional for add_task, commonly used with update_task)",
+          description: "Initial task status (default: pending)",
+        },
+      },
+      required: ["taskId", "title"],
+    },
+    // No _meta.ui - this tool does NOT render a widget
+  },
+  // Task Update - Updates an existing task (no UI rendered)
+  {
+    name: "task-update",
+    description:
+      "Update an existing task's status, notes, or result. The task orchestrator widget will automatically update to reflect changes. Use this to mark tasks as in_progress, completed, failed, or skipped.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        chatId: {
+          type: "string",
+          description: "Optional chat ID to scope the plan. Must match the chatId used when creating the plan.",
+        },
+        taskId: {
+          type: "string",
+          description: "The ID of the task to update",
+        },
+        status: {
+          type: "string",
+          enum: ["pending", "in_progress", "completed", "failed", "skipped"],
+          description: "New task status",
         },
         notes: {
           type: "string",
-          description: "Additional notes for the task (optional for update_task)",
+          description: "Additional notes for the task",
         },
         result: {
           type: "string",
-          description: "Result or output of the task (optional for update_task)",
+          description: "Result or output of the task",
+        },
+        title: {
+          type: "string",
+          description: "Updated task title (optional)",
+        },
+        description: {
+          type: "string",
+          description: "Updated task description (optional)",
         },
       },
-      required: ["action"],
+      required: ["taskId"],
+    },
+    // No _meta.ui - this tool does NOT render a widget
+  },
+  // Task Status - App-only tool for widget polling (hidden from LLM)
+  {
+    name: "task-status",
+    description:
+      "Get the current status of the task plan. This is an app-only tool used by the task orchestrator widget to poll for updates.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        chatId: {
+          type: "string",
+          description: "Optional chat ID to scope the plan.",
+        },
+      },
+      required: [],
     },
     _meta: {
       ui: {
-        resourceUri: "ui://demo/task-orchestrator",
-        initialHeight: 400,
-        resizable: true,
+        visibility: ["app"], // App-only - hidden from LLM tool list
       },
     },
   },
@@ -353,141 +417,130 @@ async function executeTool(
     }
 
     case "task-orchestrator": {
-      const action = args.action as string;
+      // task-orchestrator now ONLY creates a plan and renders the widget ONCE
       const chatId = args.chatId as string | undefined;
+      const rootGoal = args.rootGoal as string;
 
-      if (!action) {
-        throw new Error("Missing required parameter: action");
+      if (!rootGoal) {
+        throw new Error("task-orchestrator requires rootGoal parameter");
       }
 
       const orchestrator = getOrCreateOrchestrator(chatId);
+      const plan = orchestrator.createPlan(rootGoal);
 
-      switch (action) {
-        case "create_plan": {
-          const rootGoal = args.rootGoal as string;
-          if (!rootGoal) {
-            throw new Error("create_plan requires rootGoal parameter");
-          }
-          const plan = orchestrator.createPlan(rootGoal);
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  action: "create_plan",
-                  message: `Plan created with goal: "${rootGoal}"`,
-                  plan,
-                }),
-              },
-            ],
-            _meta: {
-              ui: {
-                resourceUri: "ui://demo/task-orchestrator",
-                initialHeight: 400,
-                resizable: true,
-              },
-            },
-          };
-        }
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              action: "create_plan",
+              message: `Plan created with goal: "${rootGoal}". The task orchestrator widget is now displayed. Use task-add to add tasks and task-update to update their status. The widget will automatically refresh to show changes.`,
+              chatId: chatId ?? "default",
+              plan,
+            }),
+          },
+        ],
+        _meta: {
+          ui: {
+            resourceUri: "ui://demo/task-orchestrator",
+            initialHeight: 400,
+            resizable: true,
+          },
+        },
+      };
+    }
 
-        case "add_task": {
-          const taskId = args.taskId as string;
-          const title = args.title as string;
-          if (!taskId || !title) {
-            throw new Error("add_task requires taskId and title parameters");
-          }
-          const plan = orchestrator.addTask({
-            id: taskId,
-            title,
-            description: args.description as string | undefined,
-            parentId: args.parentId as string | undefined,
-            status: (args.status as TaskStatus) || "pending",
-          });
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  action: "add_task",
-                  message: `Task "${title}" added`,
-                  taskId,
-                  plan,
-                }),
-              },
-            ],
-            _meta: {
-              ui: {
-                resourceUri: "ui://demo/task-orchestrator",
-                initialHeight: 400,
-                resizable: true,
-              },
-            },
-          };
-        }
+    case "task-add": {
+      // Add a task - NO UI rendered, widget polls for updates
+      const chatId = args.chatId as string | undefined;
+      const taskId = args.taskId as string;
+      const title = args.title as string;
 
-        case "update_task": {
-          const taskId = args.taskId as string;
-          if (!taskId) {
-            throw new Error("update_task requires taskId parameter");
-          }
-          const plan = orchestrator.updateTask({
-            id: taskId,
-            status: args.status as TaskStatus | undefined,
-            notes: args.notes as string | undefined,
-            result: args.result as string | undefined,
-            title: args.title as string | undefined,
-            description: args.description as string | undefined,
-          });
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  action: "update_task",
-                  message: `Task "${taskId}" updated`,
-                  taskId,
-                  plan,
-                }),
-              },
-            ],
-            _meta: {
-              ui: {
-                resourceUri: "ui://demo/task-orchestrator",
-                initialHeight: 400,
-                resizable: true,
-              },
-            },
-          };
-        }
-
-        case "get_plan": {
-          const plan = orchestrator.getPlan();
-          return {
-            content: [
-              {
-                type: "text",
-                text: JSON.stringify({
-                  action: "get_plan",
-                  message: plan.rootGoal
-                    ? `Plan: "${plan.rootGoal}" - ${plan.completedCount}/${plan.totalCount} tasks complete`
-                    : "No plan exists yet. Use create_plan to start.",
-                  plan,
-                }),
-              },
-            ],
-            _meta: {
-              ui: {
-                resourceUri: "ui://demo/task-orchestrator",
-                initialHeight: 400,
-                resizable: true,
-              },
-            },
-          };
-        }
-
-        default:
-          throw new Error(`Unknown task-orchestrator action: ${action}`);
+      if (!taskId || !title) {
+        throw new Error("task-add requires taskId and title parameters");
       }
+
+      const orchestrator = getOrCreateOrchestrator(chatId);
+      const plan = orchestrator.addTask({
+        id: taskId,
+        title,
+        description: args.description as string | undefined,
+        parentId: args.parentId as string | undefined,
+        status: (args.status as TaskStatus) || "pending",
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              action: "add_task",
+              message: `Task "${title}" added to plan`,
+              taskId,
+              plan,
+            }),
+          },
+        ],
+        // NO _meta.ui - this does NOT render a new widget
+      };
+    }
+
+    case "task-update": {
+      // Update a task - NO UI rendered, widget polls for updates
+      const chatId = args.chatId as string | undefined;
+      const taskId = args.taskId as string;
+
+      if (!taskId) {
+        throw new Error("task-update requires taskId parameter");
+      }
+
+      const orchestrator = getOrCreateOrchestrator(chatId);
+      const plan = orchestrator.updateTask({
+        id: taskId,
+        status: args.status as TaskStatus | undefined,
+        notes: args.notes as string | undefined,
+        result: args.result as string | undefined,
+        title: args.title as string | undefined,
+        description: args.description as string | undefined,
+      });
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              action: "update_task",
+              message: `Task "${taskId}" updated`,
+              taskId,
+              plan,
+            }),
+          },
+        ],
+        // NO _meta.ui - this does NOT render a new widget
+      };
+    }
+
+    case "task-status": {
+      // App-only tool for widget polling - returns current plan state
+      const chatId = args.chatId as string | undefined;
+      const orchestrator = getOrCreateOrchestrator(chatId);
+      const plan = orchestrator.getPlan();
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              action: "get_status",
+              message: plan.rootGoal
+                ? `Plan: "${plan.rootGoal}" - ${plan.completedCount}/${plan.totalCount} tasks complete`
+                : "No plan exists yet.",
+              plan,
+            }),
+          },
+        ],
+        // NO _meta.ui - this is for polling only
+      };
     }
 
     case "generate-ui": {
@@ -621,12 +674,23 @@ async function handleJsonRpcRequest(request: {
             },
           },
         };
-      case "tools/list":
+      case "tools/list": {
+        // Filter out app-only tools (those with visibility: ["app"])
+        // These are only callable by the widget, not the LLM
+        const llmVisibleTools = TOOLS.filter((tool) => {
+          const visibility = (tool as { _meta?: { ui?: { visibility?: string[] } } })._meta?.ui?.visibility;
+          // If visibility is defined and only includes "app", hide from LLM
+          if (visibility && visibility.length === 1 && visibility[0] === "app") {
+            return false;
+          }
+          return true;
+        });
         return {
           jsonrpc: "2.0",
           id,
-          result: { tools: TOOLS },
+          result: { tools: llmVisibleTools },
         };
+      }
       case "tools/call": {
         const toolParams = params as {
           name: string;

@@ -416,6 +416,10 @@ export function getTaskOrchestratorViewHtml(): string {
   <script>
     // State
     let plan = null;
+    let currentChatId = 'default';
+    let pollInterval = null;
+    let isPolling = false;
+    const POLL_INTERVAL_MS = 3000; // Poll every 3 seconds
 
     // DOM elements
     const mainContentEl = document.getElementById('main-content');
@@ -436,6 +440,47 @@ export function getTaskOrchestratorViewHtml(): string {
       failed: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>',
       skipped: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9 12h6"/></svg>'
     };
+
+    // Polling mechanism - polls task-status to get latest plan state
+    function startPolling() {
+      if (pollInterval) {
+        return; // Already polling
+      }
+      
+      isPolling = true;
+      pollInterval = setInterval(() => {
+        if (!isPolling) {
+          stopPolling();
+          return;
+        }
+        
+        // Request updated plan state via task-status tool
+        window.parent.postMessage({
+          type: 'mcp:callTool',
+          payload: {
+            name: 'task-status',
+            arguments: { chatId: currentChatId }
+          }
+        }, '*');
+      }, POLL_INTERVAL_MS);
+    }
+
+    function stopPolling() {
+      isPolling = false;
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    }
+
+    // Stop polling when page is hidden, resume when visible
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) {
+        stopPolling();
+      } else if (plan) {
+        startPolling();
+      }
+    });
 
     function escapeHtml(text) {
       const div = document.createElement('div');
@@ -521,6 +566,8 @@ export function getTaskOrchestratorViewHtml(): string {
           plan.totalCount === 1 
             ? 'Task completed successfully!' 
             : 'All ' + plan.totalCount + ' tasks have been completed!';
+        // Stop polling when plan is complete
+        stopPolling();
         requestAnimationFrame(reportHeight);
         return;
       }
@@ -581,17 +628,25 @@ export function getTaskOrchestratorViewHtml(): string {
           
           if (data?.plan) {
             plan = data.plan;
+            // Extract chatId if provided
+            if (data.chatId) {
+              currentChatId = data.chatId;
+            }
             render();
+            // Start polling after we receive the initial plan
+            startPolling();
           }
         } catch (err) {
           console.error('Error parsing tool result:', err);
         }
       }
 
-      // Handle tool input (alternative way to receive plan)
+      // Handle tool input (alternative way to receive plan and chatId)
       if (type === 'mcp:toolInput' && payload?.arguments) {
-        // Tool input doesn't contain plan directly, but we can use it
-        // to know we're in an active session
+        // Extract chatId from tool input arguments
+        if (payload.arguments.chatId) {
+          currentChatId = payload.arguments.chatId;
+        }
       }
 
       // Handle theme updates

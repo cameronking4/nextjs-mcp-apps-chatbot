@@ -90,30 +90,33 @@ export async function getFundamentals(
 
     if (!fd && !ks && !sd) return null;
 
+    // Helper to safely extract numeric values (yahoo-finance2 sometimes returns {} for missing data)
+    const num = (val: unknown): number => (typeof val === "number" ? val : 0);
+
     const fundamentals: Fundamentals = {
       ticker: ticker.toUpperCase(),
-      pe: sd?.trailingPE || 0,
-      forwardPe: sd?.forwardPE || ks?.forwardPE || 0,
-      peg: ks?.pegRatio || 0,
-      eps: ks?.trailingEps || 0,
-      epsGrowth: (ks?.earningsQuarterlyGrowth || 0) * 100,
-      revenue: fd?.totalRevenue || 0,
-      revenueGrowth: (fd?.revenueGrowth || 0) * 100,
-      grossMargin: (fd?.grossMargins || 0) * 100,
-      operatingMargin: (fd?.operatingMargins || 0) * 100,
-      netMargin: (fd?.profitMargins || 0) * 100,
-      ebitda: fd?.ebitda || 0,
-      debtToEquity: fd?.debtToEquity || 0,
-      currentRatio: fd?.currentRatio || 0,
-      quickRatio: fd?.quickRatio || 0,
-      roe: (fd?.returnOnEquity || 0) * 100,
-      roa: (fd?.returnOnAssets || 0) * 100,
-      freeCashFlow: fd?.freeCashflow || 0,
-      bookValue: ks?.bookValue || 0,
-      priceToBook: ks?.priceToBook || sd?.priceToBook || 0,
-      priceToSales: sd?.priceToSalesTrailing12Months || 0,
-      dividendYield: (sd?.dividendYield || 0) * 100,
-      payoutRatio: (sd?.payoutRatio || 0) * 100,
+      pe: num(sd?.trailingPE),
+      forwardPe: num(sd?.forwardPE) || num(ks?.forwardPE),
+      peg: num(ks?.pegRatio),
+      eps: num(ks?.trailingEps),
+      epsGrowth: num(ks?.earningsQuarterlyGrowth) * 100,
+      revenue: num(fd?.totalRevenue),
+      revenueGrowth: num(fd?.revenueGrowth) * 100,
+      grossMargin: num(fd?.grossMargins) * 100,
+      operatingMargin: num(fd?.operatingMargins) * 100,
+      netMargin: num(fd?.profitMargins) * 100,
+      ebitda: num(fd?.ebitda),
+      debtToEquity: num(fd?.debtToEquity),
+      currentRatio: num(fd?.currentRatio),
+      quickRatio: num(fd?.quickRatio),
+      roe: num(fd?.returnOnEquity) * 100,
+      roa: num(fd?.returnOnAssets) * 100,
+      freeCashFlow: num(fd?.freeCashflow),
+      bookValue: num(ks?.bookValue),
+      priceToBook: num(ks?.priceToBook) || num(sd?.priceToBook),
+      priceToSales: num(sd?.priceToSalesTrailing12Months),
+      dividendYield: num(sd?.dividendYield) * 100,
+      payoutRatio: num(sd?.payoutRatio) * 100,
       ttm: true,
       fiscalYearEnd: "December", // Yahoo doesn't always provide this
     };
@@ -234,13 +237,16 @@ export async function searchSecurities(
       newsCount: 0,
     });
 
+    // Helper to safely extract string values (yahoo-finance2 sometimes returns {} for missing data)
+    const str = (val: unknown): string => (typeof val === "string" ? val : "");
+
     const securities = results.quotes
-      .filter((q) => "symbol" in q && q.symbol)
+      .filter((q) => "symbol" in q && typeof q.symbol === "string" && q.symbol)
       .map((q) => ({
-        ticker: q.symbol || "",
-        name: ("shortname" in q ? q.shortname : "") || ("longname" in q ? q.longname : "") || q.symbol || "",
-        type: ("quoteType" in q ? q.quoteType : "") || "EQUITY",
-        exchange: ("exchange" in q ? q.exchange : "") || "UNKNOWN",
+        ticker: str(q.symbol),
+        name: str("shortname" in q ? q.shortname : "") || str("longname" in q ? q.longname : "") || str(q.symbol),
+        type: str("quoteType" in q ? q.quoteType : "") || "EQUITY",
+        exchange: str("exchange" in q ? q.exchange : "") || "UNKNOWN",
       }));
 
     cache.set(cacheKey, securities, CACHE_TTL.SEARCH);
@@ -268,7 +274,7 @@ export async function getScreenerResults(
   if (cached) return cached;
 
   try {
-    const results = await yahooFinance.screener(screenerId, { count });
+    const results = await yahooFinance.screener({ scrIds: screenerId, count });
 
     const movers: Mover[] = results.quotes.map((q) => ({
       ticker: q.symbol,
