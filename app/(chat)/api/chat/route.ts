@@ -64,8 +64,14 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { id, message, messages, selectedChatModel, selectedVisibilityType } =
-      requestBody;
+    const {
+      id,
+      message,
+      messages,
+      selectedChatModel,
+      selectedVisibilityType,
+      ephemeral,
+    } = requestBody;
 
     const session = await auth();
 
@@ -97,7 +103,7 @@ export async function POST(request: Request) {
       if (!isToolApprovalFlow) {
         messagesFromDb = await getMessagesByChatId({ id });
       }
-    } else if (message?.role === "user") {
+    } else if (message?.role === "user" && !ephemeral) {
       await saveChat({
         id,
         userId: session.user.id,
@@ -120,7 +126,7 @@ export async function POST(request: Request) {
       country,
     };
 
-    if (message?.role === "user") {
+    if (message?.role === "user" && !ephemeral) {
       await saveMessages({
         messages: [
           {
@@ -200,7 +206,7 @@ export async function POST(request: Request) {
 
         dataStream.merge(result.toUIMessageStream({ sendReasoning: true }));
 
-        if (titlePromise) {
+        if (titlePromise && !ephemeral) {
           const title = await titlePromise;
           dataStream.write({ type: "data-chat-title", data: title });
           updateChatTitleById({ chatId: id, title });
@@ -208,6 +214,9 @@ export async function POST(request: Request) {
       },
       generateId: generateUUID,
       onFinish: async ({ messages: finishedMessages }) => {
+        // Skip persistence for ephemeral chats
+        if (ephemeral) return;
+
         if (isToolApprovalFlow) {
           for (const finishedMsg of finishedMessages) {
             const existingMsg = uiMessages.find((m) => m.id === finishedMsg.id);

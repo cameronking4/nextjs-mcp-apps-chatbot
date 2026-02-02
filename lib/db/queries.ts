@@ -10,6 +10,7 @@ import {
   gte,
   inArray,
   lt,
+  lte,
   type SQL,
 } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
@@ -24,6 +25,8 @@ import {
   type DBMessage,
   document,
   message,
+  type ScheduledPrompt,
+  scheduledPrompt,
   type Suggestion,
   stream,
   suggestion,
@@ -597,6 +600,147 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to get stream ids by chat id"
+    );
+  }
+}
+
+// Scheduled Prompt CRUD functions
+
+export async function createScheduledPrompt({
+  userId,
+  promptText,
+  cronExpression,
+  nextRunAt,
+}: {
+  userId: string;
+  promptText: string;
+  cronExpression: string;
+  nextRunAt: Date;
+}): Promise<ScheduledPrompt> {
+  try {
+    const [created] = await db
+      .insert(scheduledPrompt)
+      .values({
+        userId,
+        promptText,
+        cronExpression,
+        nextRunAt,
+        createdAt: new Date(),
+        isActive: true,
+      })
+      .returning();
+    return created;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to create scheduled prompt"
+    );
+  }
+}
+
+export async function getScheduledPromptsByUserId({
+  userId,
+}: {
+  userId: string;
+}): Promise<ScheduledPrompt[]> {
+  try {
+    return await db
+      .select()
+      .from(scheduledPrompt)
+      .where(eq(scheduledPrompt.userId, userId))
+      .orderBy(desc(scheduledPrompt.createdAt));
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get scheduled prompts by user id"
+    );
+  }
+}
+
+export async function getScheduledPromptById({
+  id,
+}: {
+  id: string;
+}): Promise<ScheduledPrompt | null> {
+  try {
+    const [prompt] = await db
+      .select()
+      .from(scheduledPrompt)
+      .where(eq(scheduledPrompt.id, id));
+    return prompt ?? null;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get scheduled prompt by id"
+    );
+  }
+}
+
+export async function updateScheduledPrompt({
+  id,
+  isActive,
+  cronExpression,
+  nextRunAt,
+  lastRunAt,
+}: {
+  id: string;
+  isActive?: boolean;
+  cronExpression?: string;
+  nextRunAt?: Date;
+  lastRunAt?: Date;
+}): Promise<ScheduledPrompt> {
+  try {
+    const updateData: Partial<ScheduledPrompt> = {};
+    if (isActive !== undefined) updateData.isActive = isActive;
+    if (cronExpression !== undefined) updateData.cronExpression = cronExpression;
+    if (nextRunAt !== undefined) updateData.nextRunAt = nextRunAt;
+    if (lastRunAt !== undefined) updateData.lastRunAt = lastRunAt;
+
+    const [updated] = await db
+      .update(scheduledPrompt)
+      .set(updateData)
+      .where(eq(scheduledPrompt.id, id))
+      .returning();
+    return updated;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to update scheduled prompt"
+    );
+  }
+}
+
+export async function deleteScheduledPrompt({
+  id,
+}: {
+  id: string;
+}): Promise<void> {
+  try {
+    await db.delete(scheduledPrompt).where(eq(scheduledPrompt.id, id));
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to delete scheduled prompt"
+    );
+  }
+}
+
+export async function getDueScheduledPrompts(): Promise<ScheduledPrompt[]> {
+  try {
+    const now = new Date();
+    return await db
+      .select()
+      .from(scheduledPrompt)
+      .where(
+        and(
+          eq(scheduledPrompt.isActive, true),
+          lte(scheduledPrompt.nextRunAt, now)
+        )
+      );
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get due scheduled prompts"
     );
   }
 }

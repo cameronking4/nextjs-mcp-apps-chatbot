@@ -43,8 +43,8 @@ interface MCPAppHostProps {
   ) => Promise<unknown>;
   /** Callback when the View wants to update model context */
   onContextUpdate?: (content: unknown[]) => void;
-  /** Callback when the View wants to send a message to the chat */
-  onSendMessage?: (text: string) => void;
+  /** Callback when the View wants to open a side panel chat with a prompt */
+  onOpenSideChat?: (prompt: string) => void;
   /** Additional class names */
   className?: string;
   /** Whether to fill the available height (for fullscreen mode) */
@@ -59,7 +59,7 @@ export function MCPAppHost({
   serverId,
   uiMeta,
   onToolCall,
-  onSendMessage,
+  onOpenSideChat,
   className,
   fillHeight = false,
 }: MCPAppHostProps) {
@@ -155,15 +155,15 @@ export function MCPAppHost({
         sendInitialData();
       }
 
-      // Handle send message requests from iframe (for user responses)
-      if (type === "mcp:sendMessage" && payload?.text && onSendMessage) {
-        onSendMessage(payload.text);
+      // Handle send message requests from iframe (opens side panel chat)
+      if (type === "mcp:sendMessage" && payload?.text && onOpenSideChat) {
+        onOpenSideChat(payload.text);
       }
     };
 
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
-  }, [handleToolCall, uiMeta?.resizable, onSendMessage]);
+  }, [handleToolCall, uiMeta?.resizable, onOpenSideChat]);
 
   // Send initial data to iframe
   const sendInitialData = useCallback(() => {

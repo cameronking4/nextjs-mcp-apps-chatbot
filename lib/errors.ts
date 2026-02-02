@@ -16,7 +16,8 @@ export type Surface =
   | "vote"
   | "document"
   | "suggestions"
-  | "activate_gateway";
+  | "activate_gateway"
+  | "scheduled-prompt";
 
 export type ErrorCode = `${ErrorType}:${Surface}`;
 
@@ -33,6 +34,7 @@ export const visibilityBySurface: Record<Surface, ErrorVisibility> = {
   document: "response",
   suggestions: "response",
   activate_gateway: "response",
+  "scheduled-prompt": "response",
 };
 
 export class ChatSDKError extends Error {
@@ -111,6 +113,15 @@ export function getMessageByErrorCode(errorCode: ErrorCode): string {
       return "You need to sign in to view this document. Please sign in and try again.";
     case "bad_request:document":
       return "The request to create or update the document was invalid. Please check your input and try again.";
+
+    case "not_found:scheduled-prompt":
+      return "The requested scheduled prompt was not found.";
+    case "forbidden:scheduled-prompt":
+      return "You do not have permission to access this scheduled prompt.";
+    case "unauthorized:scheduled-prompt":
+      return "You need to sign in to manage scheduled prompts.";
+    case "bad_request:scheduled-prompt":
+      return "The request to create or update the scheduled prompt was invalid.";
 
     default:
       return "Something went wrong. Please try again later.";

@@ -1,9 +1,9 @@
 "use client";
 import type { UseChatHelpers } from "@ai-sdk/react";
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
-import { cn, sanitizeText } from "@/lib/utils";
+import { cn, parseQuestionnaireAnswers, sanitizeText } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
 import { DocumentToolResult } from "./document";
 import { DocumentPreview } from "./document-preview";
@@ -22,6 +22,8 @@ import { MessageActions } from "./message-actions";
 import { MessageEditor } from "./message-editor";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
+import { QuestionnaireAnswersCard } from "./questionnaire-answers-card";
+import { useSidePanel } from "./side-panel-context";
 import { Weather } from "./weather";
 
 const PurePreviewMessage = ({
@@ -48,6 +50,7 @@ const PurePreviewMessage = ({
   sendMessage?: UseChatHelpers<ChatMessage>["sendMessage"];
 }) => {
   const [mode, setMode] = useState<"view" | "edit">("view");
+  const { openSideChat } = useSidePanel();
 
   const attachmentsFromMessage = message.parts.filter(
     (part) => part.type === "file"
@@ -127,6 +130,19 @@ const PurePreviewMessage = ({
 
             if (type === "text") {
               if (mode === "view") {
+                // Check for questionnaire answers in user messages
+                if (message.role === "user") {
+                  const parsedAnswers = parseQuestionnaireAnswers(part.text);
+                  if (parsedAnswers) {
+                    return (
+                      <QuestionnaireAnswersCard
+                        answers={parsedAnswers}
+                        key={key}
+                      />
+                    );
+                  }
+                }
+
                 return (
                   <div key={key}>
                     <MessageContent
@@ -389,20 +405,10 @@ const PurePreviewMessage = ({
               const mcpMeta = output?._mcpMeta;
               const resultMeta = output?._meta;
 
-              // Handler for sending user messages from MCP App UI
-              const handleSendMessage = (text: string) => {
-                if (sendMessage) {
-                  sendMessage({
-                    role: "user",
-                    parts: [{ type: "text", text }],
-                  });
-                }
-              };
-
               return (
                 <div className="w-full max-w-2xl" key={toolCallId}>
                   <MCPToolResult
-                    onSendMessage={handleSendMessage}
+                    onOpenSideChat={openSideChat}
                     part={{
                       toolCallId,
                       toolName: type.replace("tool-", ""),

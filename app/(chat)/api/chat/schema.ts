@@ -34,6 +34,8 @@ export const postRequestBodySchema = z.object({
   messages: z.array(messageSchema).optional(),
   selectedChatModel: z.string(),
   selectedVisibilityType: z.enum(["public", "private"]),
+  // Ephemeral mode skips database persistence (for side panel chats)
+  ephemeral: z.boolean().optional().default(false),
 });
 
 export type PostRequestBody = z.infer<typeof postRequestBodySchema>;

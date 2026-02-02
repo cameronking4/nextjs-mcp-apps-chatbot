@@ -168,3 +168,18 @@ export const stream = pgTable(
 );
 
 export type Stream = InferSelectModel<typeof stream>;
+
+export const scheduledPrompt = pgTable("ScheduledPrompt", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
+  promptText: text("promptText").notNull(),
+  cronExpression: varchar("cronExpression", { length: 100 }).notNull(),
+  isActive: boolean("isActive").notNull().default(true),
+  createdAt: timestamp("createdAt").notNull(),
+  lastRunAt: timestamp("lastRunAt"),
+  nextRunAt: timestamp("nextRunAt"),
+});
+
+export type ScheduledPrompt = InferSelectModel<typeof scheduledPrompt>;

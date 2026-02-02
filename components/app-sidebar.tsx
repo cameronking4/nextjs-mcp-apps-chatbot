@@ -12,6 +12,7 @@ import {
   getChatHistoryPaginationKey,
   SidebarHistory,
 } from "@/components/sidebar-history";
+import { SidebarScheduledPrompts } from "@/components/sidebar-scheduled-prompts";
 import { SidebarUserNav } from "@/components/sidebar-user-nav";
 import { Button } from "@/components/ui/button";
 import {
@@ -117,6 +118,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
           </SidebarMenu>
         </SidebarHeader>
         <SidebarContent>
+          <SidebarScheduledPrompts user={user} />
           <SidebarHistory user={user} />
         </SidebarContent>
         <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter>

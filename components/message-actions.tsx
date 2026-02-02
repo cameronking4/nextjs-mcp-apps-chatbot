@@ -1,5 +1,7 @@
 import equal from "fast-deep-equal";
-import { memo } from "react";
+import { CalendarClock } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { memo, useState } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
 import { useCopyToClipboard } from "usehooks-ts";
@@ -7,6 +9,7 @@ import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
 import { Action, Actions } from "./elements/actions";
 import { CopyIcon, PencilEditIcon, ThumbDownIcon, ThumbUpIcon } from "./icons";
+import { SchedulePromptDialog } from "./schedule-prompt-dialog";
 
 export function PureMessageActions({
   chatId,
@@ -23,6 +26,8 @@ export function PureMessageActions({
 }) {
   const { mutate } = useSWRConfig();
   const [_, copyToClipboard] = useCopyToClipboard();
+  const { data: session } = useSession();
+  const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
 
   if (isLoading) {
     return null;
@@ -44,26 +49,66 @@ export function PureMessageActions({
     toast.success("Copied to clipboard!");
   };
 
+  const handleScheduleClick = () => {
+    if (!session?.user) {
+      toast.error("Please sign in to schedule prompts");
+      return;
+    }
+
+    if (session.user.type === "guest") {
+      toast.error("Please sign in to schedule prompts");
+      return;
+    }
+
+    if (!textFromParts) {
+      toast.error("There's no text to schedule!");
+      return;
+    }
+
+    setScheduleDialogOpen(true);
+  };
+
   // User messages get edit (on hover) and copy actions
   if (message.role === "user") {
     return (
-      <Actions className="-mr-0.5 justify-end">
-        <div className="relative">
-          {setMode && (
-            <Action
-              className="absolute top-0 -left-10 opacity-0 transition-opacity focus-visible:opacity-100 group-hover/message:opacity-100"
-              data-testid="message-edit-button"
-              onClick={() => setMode("edit")}
-              tooltip="Edit"
-            >
-              <PencilEditIcon />
+      <>
+        <Actions className="-mr-0.5 justify-end">
+          <div className="relative">
+            {setMode && (
+            <>
+              <Action
+                className="absolute top-0 -left-20 opacity-0 transition-opacity focus-visible:opacity-100 group-hover/message:opacity-100"
+                data-testid="message-edit-button"
+                onClick={() => setMode("edit")}
+                tooltip="Edit"
+              >
+                <PencilEditIcon />
+              </Action>
+              <Action 
+                className="absolute top-0 -left-10 opacity-0 transition-opacity focus-visible:opacity-100 group-hover/message:opacity-100"
+                data-testid="message-schedule-button"
+                onClick={handleScheduleClick}
+                tooltip="Schedule"
+              >
+                <CalendarClock />
+              </Action>
+            </>
+            )}
+            <Action onClick={handleCopy} tooltip="Copy">
+              <CopyIcon />
             </Action>
-          )}
-          <Action onClick={handleCopy} tooltip="Copy">
-            <CopyIcon />
-          </Action>
-        </div>
-      </Actions>
+           
+          </div>
+        </Actions>
+        
+        {textFromParts && (
+          <SchedulePromptDialog
+            onOpenChange={setScheduleDialogOpen}
+            open={scheduleDialogOpen}
+            promptText={textFromParts}
+          />
+        )}
+      </>
     );
   }
 

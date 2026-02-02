@@ -114,3 +114,60 @@ export function getTextFromMessage(message: ChatMessage | UIMessage): string {
     .map((part) => (part as { type: 'text'; text: string}).text)
     .join('');
 }
+
+/**
+ * Parsed answer from a questionnaire response
+ */
+export interface ParsedQuestionnaireAnswer {
+  question: string;
+  answer: string;
+  isSkipped: boolean;
+  isOther: boolean;
+}
+
+/**
+ * Detects and parses questionnaire answers from a message text.
+ * Returns null if the text doesn't match the expected format.
+ */
+export function parseQuestionnaireAnswers(text: string): ParsedQuestionnaireAnswer[] | null {
+  const trimmedText = text.trim();
+  
+  // Check if the message starts with the questionnaire answer header
+  if (!trimmedText.startsWith('Here are my answers to your questions:')) {
+    return null;
+  }
+  
+  // Parse "- Question: Answer" lines
+  const lines = trimmedText.split('\n').filter(line => line.trim().startsWith('- '));
+  
+  if (lines.length === 0) {
+    return null;
+  }
+  
+  return lines.map(line => {
+    // Remove the leading "- " and trim
+    const content = line.trim().slice(2);
+    
+    // Split on first ": " to separate question from answer
+    const colonIndex = content.indexOf(': ');
+    
+    if (colonIndex === -1) {
+      return {
+        question: content,
+        answer: '',
+        isSkipped: true,
+        isOther: false,
+      };
+    }
+    
+    const question = content.slice(0, colonIndex);
+    const answer = content.slice(colonIndex + 2);
+    
+    return {
+      question,
+      answer,
+      isSkipped: answer === '(Skipped)',
+      isOther: answer.startsWith('Other: '),
+    };
+  });
+}

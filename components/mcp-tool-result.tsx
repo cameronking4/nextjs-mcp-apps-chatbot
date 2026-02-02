@@ -63,15 +63,15 @@ interface MCPToolResultProps {
     toolName: string,
     args: Record<string, unknown>
   ) => Promise<unknown>;
-  /** Callback when the MCP App wants to send a message to the chat */
-  onSendMessage?: (text: string) => void;
+  /** Callback when the MCP App wants to open a side panel chat */
+  onOpenSideChat?: (prompt: string) => void;
   className?: string;
 }
 
 export function MCPToolResult({
   part,
   onToolCall,
-  onSendMessage,
+  onOpenSideChat,
   className,
 }: MCPToolResultProps) {
   const {
@@ -224,7 +224,7 @@ export function MCPToolResult({
           return (
             <MCPAppHost
               className="border-0"
-              onSendMessage={onSendMessage}
+              onOpenSideChat={onOpenSideChat}
               onToolCall={handleToolCall}
               serverId={serverId}
               toolInput={input}
@@ -303,7 +303,7 @@ export function MCPToolResult({
       <MCPAppHost
         className="border-0"
         fillHeight
-        onSendMessage={onSendMessage}
+        onOpenSideChat={onOpenSideChat}
         onToolCall={handleToolCall}
         serverId={serverId}
         toolInput={input}
@@ -402,7 +402,7 @@ export function MCPToolResult({
       {/* Fullscreen Dialog */}
       <Dialog onOpenChange={setIsFullscreen} open={isFullscreen}>
         <DialogContent className="flex h-[90vh] max-w-[75vw] flex-col p-0">
-          <DialogHeader className="flex-shrink-0 border-b px-6 py-4">
+          <DialogHeader className="shrink-0 border-b px-6 py-4">
             <DialogTitle className="flex items-center gap-2">
               <div className="size-2 rounded-full bg-green-500" />
               <span>{displayToolName}</span>
