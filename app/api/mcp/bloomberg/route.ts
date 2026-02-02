@@ -96,8 +96,8 @@ const TOOLS = [
     _meta: {
       ui: {
         resourceUri: "ui://bloomberg/equity-quote",
-        initialHeight: 280,
-        resizable: false,
+        initialHeight: 420,
+        resizable: true,
       },
     },
   },
@@ -632,7 +632,11 @@ async function executeTool(
     // Equity Tools
     case "equity_quote": {
       const ticker = args.ticker as string;
-      const equity = await getQuote(ticker);
+      const [equity, yearHistory, dayHistory] = await Promise.all([
+        getQuote(ticker),
+        getRealHistoricalPrices(ticker, "1Y"),
+        getRealHistoricalPrices(ticker, "1D"),
+      ]);
       
       if (!equity) {
         return {
@@ -640,14 +644,40 @@ async function executeTool(
         };
       }
       
-      const sparkline = await getRealSparklineData(ticker);
+      // Calculate 52-week high/low from 1Y historical data
+      let fiftyTwoWeekHigh = equity.high;
+      let fiftyTwoWeekLow = equity.low;
+      if (yearHistory.length > 0) {
+        const yearHighs = yearHistory.map(p => p.high);
+        const yearLows = yearHistory.map(p => p.low);
+        fiftyTwoWeekHigh = Math.max(...yearHighs);
+        fiftyTwoWeekLow = Math.min(...yearLows);
+      }
+      
+      // Calculate previous close from price and change
+      const prevClose = equity.price - equity.change;
+      
+      // Create sparkline with timestamps for interactive chart
+      // Use 1D data if available, otherwise fall back to recent 1Y data
+      const sparklineSource = dayHistory.length > 0 ? dayHistory : yearHistory.slice(-30);
+      const sparkline = sparklineSource.map(p => ({
+        ts: p.ts,
+        close: p.close,
+        volume: p.volume,
+      }));
       
       return {
-        content: [{ type: "text", text: JSON.stringify({ ...equity, sparkline }) }],
+        content: [{ type: "text", text: JSON.stringify({ 
+          ...equity, 
+          sparkline,
+          fiftyTwoWeekHigh,
+          fiftyTwoWeekLow,
+          prevClose,
+        }) }],
         _meta: {
           ui: {
             resourceUri: "ui://bloomberg/equity-quote",
-            initialHeight: 280,
+            initialHeight: 420,
           },
         },
       };
