@@ -21,6 +21,17 @@ export {
   getScreenerResults,
   getIndices,
   screenEquities,
+  getAnalystRatings,
+  getInsiderTransactions as getYahooInsiderTransactions,
+  getInstitutionalOwnership,
+  getOptionsChain,
+  getUnusualOptionsActivity,
+  getEsgScores,
+  getForexQuote,
+  getCommodityPrices,
+  getEtfHoldings,
+  getDividendHistory,
+  getStockSplits,
   type HistoricalTimeframe,
 } from "./yahoo-finance";
 
@@ -41,7 +52,21 @@ export {
   getEarningsCalendar,
   getCompanyProfile,
   getBasicMetrics,
+  getAnalystRecommendations,
+  getInsiderTransactions,
+  getCompanyPeers,
+  getEconomicCalendar,
+  getPriceTargets,
+  getSupplyChain,
+  getIpoCalendar,
+  isFinnhubConfigured,
 } from "./finnhub";
+
+// Technical analysis exports
+export { calculateTechnicalIndicators } from "./technical";
+
+// FRED exports
+export { getEconomicIndicator, isFredConfigured } from "./fred";
 
 // Firecrawl exports (article scraping and search - requires API key)
 export {

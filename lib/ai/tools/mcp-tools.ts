@@ -25,12 +25,14 @@ export async function ensureMCPConnections(): Promise<void> {
   // Connect to each enabled server if not already connected
   await Promise.allSettled(
     enabledServers.map(async (config) => {
-      if (!mcpClientManager.isConnected(config.id)) {
-        try {
+      try {
+        if (!mcpClientManager.isConnected(config.id)) {
           await mcpClientManager.connectToServer(config);
-        } catch (error) {
-          console.error(`Failed to connect to MCP server ${config.name}:`, error);
+        } else {
+          await mcpClientManager.refreshTools(config.id);
         }
+      } catch (error) {
+        console.error(`Failed to connect to MCP server ${config.name}:`, error);
       }
     })
   );

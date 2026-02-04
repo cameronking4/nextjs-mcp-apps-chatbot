@@ -19,6 +19,15 @@ import {
   ChevronRight,
   ArrowLeft,
   Sparkles,
+  TrendingDown,
+  Users,
+  Building2,
+  Globe,
+  Coins,
+  LineChart,
+  Activity,
+  Leaf,
+  Network,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -54,6 +63,14 @@ const categoryIcons: Record<string, React.ReactNode> = {
   Screening: <Filter className="size-3.5" />,
   Comparison: <GitCompare className="size-3.5" />,
   "Trading (mock)": <ShoppingCart className="size-3.5" />,
+  Options: <TrendingDown className="size-3.5" />,
+  "Analyst Data": <Users className="size-3.5" />,
+  "Corporate Actions": <Building2 className="size-3.5" />,
+  "Forex & Commodities": <Globe className="size-3.5" />,
+  ETFs: <Coins className="size-3.5" />,
+  Technical: <LineChart className="size-3.5" />,
+  Intelligence: <Network className="size-3.5" />,
+  ESG: <Leaf className="size-3.5" />,
 };
 
 const categoryColors: Record<string, string> = {
@@ -70,6 +87,14 @@ const categoryColors: Record<string, string> = {
   Screening: "bg-violet-500/10 text-violet-500 border-violet-500/20",
   Comparison: "bg-lime-500/10 text-lime-500 border-lime-500/20",
   "Trading (mock)": "bg-red-500/10 text-red-500 border-red-500/20",
+  Options: "bg-fuchsia-500/10 text-fuchsia-500 border-fuchsia-500/20",
+  "Analyst Data": "bg-sky-500/10 text-sky-500 border-sky-500/20",
+  "Corporate Actions": "bg-slate-500/10 text-slate-500 border-slate-500/20",
+  "Forex & Commodities": "bg-yellow-500/10 text-yellow-500 border-yellow-500/20",
+  ETFs: "bg-green-500/10 text-green-500 border-green-500/20",
+  Technical: "bg-blue-600/10 text-blue-600 border-blue-600/20",
+  Intelligence: "bg-purple-600/10 text-purple-600 border-purple-600/20",
+  ESG: "bg-emerald-600/10 text-emerald-600 border-emerald-600/20",
 };
 
 type BloombergCapability = {
@@ -307,6 +332,231 @@ const bloombergCapabilities: BloombergCapability[] = [
       "What's the status of my pending orders?",
       "Pull up my order blotter",
       "Check if my AAPL order was filled",
+    ],
+  },
+  // NEW TOOLS - Options Analysis
+  {
+    category: "Options",
+    capability: "Options chain with Greeks",
+    tool: "mcp_bloomberg_options_chain",
+    terminal: "OMON",
+    prompts: [
+      "Show me the options chain for AAPL",
+      "Get NVDA options with Greeks for next month",
+      "Pull up TSLA's call and put options",
+      "What are the available strike prices for SPY options?",
+    ],
+  },
+  {
+    category: "Options",
+    capability: "Unusual options activity",
+    tool: "mcp_bloomberg_options_unusual_activity",
+    terminal: "MOST",
+    prompts: [
+      "Find unusual options activity for NVDA",
+      "Show me high volume options trades today",
+      "What options are seeing unusual activity?",
+      "Detect unusual options flow in tech stocks",
+    ],
+  },
+  // NEW TOOLS - Analyst & Institutional Data
+  {
+    category: "Analyst Data",
+    capability: "Analyst ratings & consensus",
+    tool: "mcp_bloomberg_analyst_ratings",
+    terminal: "ANR",
+    prompts: [
+      "What are analyst ratings for AAPL?",
+      "Show me the analyst consensus on NVDA",
+      "Get buy/hold/sell ratings for TSLA",
+      "What do analysts think about META?",
+    ],
+  },
+  {
+    category: "Analyst Data",
+    capability: "Price targets",
+    tool: "mcp_bloomberg_price_targets",
+    terminal: "PT",
+    prompts: [
+      "What's the analyst price target for AAPL?",
+      "Show me NVDA's price target range",
+      "Get analyst price targets for MSFT",
+      "What are the high and low price targets for GOOGL?",
+    ],
+  },
+  {
+    category: "Analyst Data",
+    capability: "Insider transactions",
+    tool: "mcp_bloomberg_insider_transactions",
+    terminal: "INSD",
+    prompts: [
+      "Show me recent insider trading for AAPL",
+      "Are insiders buying or selling NVDA?",
+      "Get insider transaction history for TSLA",
+      "What insider activity has there been for META?",
+    ],
+  },
+  {
+    category: "Analyst Data",
+    capability: "Institutional ownership",
+    tool: "mcp_bloomberg_institutional_ownership",
+    terminal: "HDS / OWNR",
+    prompts: [
+      "Who are the top institutional holders of AAPL?",
+      "Show me institutional ownership for NVDA",
+      "Get 13F filings for MSFT",
+      "Which institutions own the most GOOGL?",
+    ],
+  },
+  // NEW TOOLS - Economic Data
+  {
+    category: "Events",
+    capability: "Economic calendar",
+    tool: "mcp_bloomberg_economic_calendar",
+    terminal: "ECO",
+    prompts: [
+      "What economic events are coming up this week?",
+      "Show me the economic calendar",
+      "When is the next FOMC meeting?",
+      "What's on the economic calendar for next month?",
+    ],
+  },
+  {
+    category: "Market",
+    capability: "Economic indicators",
+    tool: "mcp_bloomberg_economic_indicators",
+    terminal: "ECST",
+    prompts: [
+      "What's the current GDP growth rate?",
+      "Show me the latest inflation data",
+      "Get the unemployment rate",
+      "What are key economic indicators showing?",
+    ],
+  },
+  // NEW TOOLS - Corporate Actions
+  {
+    category: "Corporate Actions",
+    capability: "Dividend calendar & history",
+    tool: "mcp_bloomberg_dividend_calendar",
+    terminal: "DVA / DVD",
+    prompts: [
+      "When is AAPL's next ex-dividend date?",
+      "Show me the dividend calendar for this month",
+      "Get dividend history for MSFT",
+      "What's the dividend schedule for high-yield stocks?",
+    ],
+  },
+  {
+    category: "Corporate Actions",
+    capability: "Stock splits",
+    tool: "mcp_bloomberg_stock_splits",
+    terminal: "CACT",
+    prompts: [
+      "Show me recent stock splits",
+      "Has NVDA announced any stock splits?",
+      "Get stock split history for AAPL",
+      "What companies are splitting their stock?",
+    ],
+  },
+  {
+    category: "Corporate Actions",
+    capability: "IPO calendar",
+    tool: "mcp_bloomberg_ipo_calendar",
+    terminal: "IPO",
+    prompts: [
+      "What IPOs are coming up?",
+      "Show me the IPO calendar for this quarter",
+      "Are there any tech IPOs scheduled?",
+      "Get upcoming IPO filings",
+    ],
+  },
+  // NEW TOOLS - Forex & Commodities
+  {
+    category: "Forex & Commodities",
+    capability: "Currency pair quotes",
+    tool: "mcp_bloomberg_forex_quote",
+    terminal: "WCR / FXFC",
+    prompts: [
+      "What's the EUR/USD exchange rate?",
+      "Show me GBP/USD quote",
+      "Get current forex rates for major pairs",
+      "What's the USD/JPY rate?",
+    ],
+  },
+  {
+    category: "Forex & Commodities",
+    capability: "Commodity prices",
+    tool: "mcp_bloomberg_commodities_prices",
+    terminal: "CMD",
+    prompts: [
+      "What's the current price of gold?",
+      "Show me oil prices",
+      "Get commodity prices for metals",
+      "What's the price of natural gas?",
+    ],
+  },
+  // NEW TOOLS - ETF Analysis
+  {
+    category: "ETFs",
+    capability: "ETF holdings & breakdown",
+    tool: "mcp_bloomberg_etf_holdings",
+    terminal: "MEMB / HLD",
+    prompts: [
+      "What are the top holdings in SPY?",
+      "Show me QQQ's sector breakdown",
+      "Get holdings for VTI",
+      "What's in the ARK Innovation ETF?",
+    ],
+  },
+  // NEW TOOLS - Technical Analysis
+  {
+    category: "Technical",
+    capability: "Technical indicators",
+    tool: "mcp_bloomberg_technical_indicators",
+    terminal: "GP / TECH",
+    prompts: [
+      "Calculate RSI for AAPL",
+      "Show me MACD for NVDA",
+      "Get technical indicators for TSLA",
+      "What's the 50-day moving average for SPY?",
+    ],
+  },
+  // NEW TOOLS - Company Intelligence
+  {
+    category: "Intelligence",
+    capability: "Company peers",
+    tool: "mcp_bloomberg_company_peers",
+    terminal: "PEER",
+    prompts: [
+      "Who are AAPL's peer companies?",
+      "Show me competitors for NVDA",
+      "Get peer group for TSLA",
+      "What companies are comparable to META?",
+    ],
+  },
+  {
+    category: "Intelligence",
+    capability: "Supply chain analysis",
+    tool: "mcp_bloomberg_supply_chain",
+    terminal: "SPLC",
+    prompts: [
+      "Show me AAPL's supply chain",
+      "Who are NVDA's suppliers?",
+      "Get supply chain data for TSLA",
+      "What companies supply to META?",
+    ],
+  },
+  // NEW TOOLS - ESG
+  {
+    category: "ESG",
+    capability: "ESG scores & ratings",
+    tool: "mcp_bloomberg_esg_scores",
+    terminal: "ESG",
+    prompts: [
+      "What's AAPL's ESG score?",
+      "Show me ESG ratings for MSFT",
+      "Get environmental score for TSLA",
+      "How does GOOGL rate on ESG metrics?",
     ],
   },
 ];

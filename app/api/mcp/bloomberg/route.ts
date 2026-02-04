@@ -18,6 +18,24 @@
  * - market_snapshot: Market indices and sector performance
  * - security_search: Search for securities by name or ticker
  * - earnings_calendar: Upcoming earnings announcements
+ * - options_chain: Options chain with calls/puts
+ * - options_unusual_activity: Unusual options volume/OI
+ * - analyst_ratings: Analyst ratings and consensus
+ * - price_targets: Analyst price targets
+ * - insider_transactions: Insider buying/selling activity
+ * - institutional_ownership: Top institutional holders
+ * - economic_calendar: Economic events calendar
+ * - economic_indicators: Key economic indicators (FRED)
+ * - dividend_calendar: Dividend history and upcoming ex-dates
+ * - stock_splits: Stock split history
+ * - ipo_calendar: Upcoming IPOs
+ * - forex_quote: Currency pair quotes
+ * - commodities_prices: Commodity prices
+ * - etf_holdings: ETF holdings and sector weights
+ * - technical_indicators: RSI, MACD, SMA/EMA, Bollinger Bands
+ * - company_peers: Peer companies
+ * - supply_chain: Suppliers and customers
+ * - esg_scores: ESG scores and peer comparison
  */
 
 import { NextResponse } from "next/server";
@@ -37,6 +55,28 @@ import {
   getCompanyNews,
   getMarketNews,
   getEarningsCalendar as getRealEarningsCalendar,
+  getAnalystRatings,
+  getYahooInsiderTransactions,
+  getInstitutionalOwnership,
+  getOptionsChain,
+  getUnusualOptionsActivity,
+  getEsgScores,
+  getForexQuote,
+  getCommodityPrices,
+  getEtfHoldings,
+  getDividendHistory,
+  getStockSplits,
+  getAnalystRecommendations,
+  getInsiderTransactions,
+  getCompanyPeers,
+  getEconomicCalendar,
+  getPriceTargets,
+  getSupplyChain,
+  getIpoCalendar,
+  calculateTechnicalIndicators,
+  getEconomicIndicator,
+  isFinnhubConfigured,
+  isFredConfigured,
   // Firecrawl providers for article scraping and search
   isFirecrawlConfigured,
   scrapeArticleContent,
@@ -57,6 +97,7 @@ import {
   placeOrder,
   cancelOrder,
   getSectorPerformance,
+  getEconomicCalendar as getMockEconomicCalendar,
 } from "@/lib/mcp/bloomberg-server/mock-data/utils";
 import { getEquityQuoteViewHtml } from "@/lib/mcp/bloomberg-server/ui/equity-quote-view";
 import { getNewsFeedViewHtml } from "@/lib/mcp/bloomberg-server/ui/news-feed-view";
@@ -71,6 +112,15 @@ import { getResearchViewHtml } from "@/lib/mcp/bloomberg-server/ui/research-view
 import { getEarningsCalendarViewHtml } from "@/lib/mcp/bloomberg-server/ui/earnings-calendar-view";
 import { getRatiosViewHtml } from "@/lib/mcp/bloomberg-server/ui/ratios-view";
 import { getFundamentalsViewHtml } from "@/lib/mcp/bloomberg-server/ui/fundamentals-view";
+import { getOptionsChainViewHtml } from "@/lib/mcp/bloomberg-server/ui/options-chain-view";
+import { getAnalystRatingsViewHtml } from "@/lib/mcp/bloomberg-server/ui/analyst-ratings-view";
+import { getInsiderActivityViewHtml } from "@/lib/mcp/bloomberg-server/ui/insider-activity-view";
+import { getEconomicCalendarViewHtml } from "@/lib/mcp/bloomberg-server/ui/economic-calendar-view";
+import { getDividendCalendarViewHtml } from "@/lib/mcp/bloomberg-server/ui/dividend-calendar-view";
+import { getForexDashboardViewHtml } from "@/lib/mcp/bloomberg-server/ui/forex-dashboard-view";
+import { getCommoditiesDashboardViewHtml } from "@/lib/mcp/bloomberg-server/ui/commodities-dashboard-view";
+import { getTechnicalChartViewHtml } from "@/lib/mcp/bloomberg-server/ui/technical-chart-view";
+import { getEsgScoresViewHtml } from "@/lib/mcp/bloomberg-server/ui/esg-scores-view";
 
 const SERVER_INFO = {
   name: "bloomberg-terminal",
@@ -611,6 +661,407 @@ const TOOLS = [
       },
     },
   },
+
+  // Options Tools
+  {
+    name: "options_chain",
+    description: "Get options chain data with strikes, volume, OI, IV, and moneyness for calls and puts.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "Underlying stock ticker symbol",
+        },
+        expiration: {
+          type: "string",
+          description: "Expiration date (YYYY-MM-DD) optional. Defaults to nearest expiry.",
+        },
+      },
+      required: ["ticker"],
+    },
+    _meta: {
+      ui: {
+        resourceUri: "ui://bloomberg/options-chain",
+        initialHeight: 520,
+        resizable: true,
+      },
+    },
+  },
+  {
+    name: "options_unusual_activity",
+    description: "Detect unusual options activity based on volume/open interest ratios.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "Underlying stock ticker symbol",
+        },
+        minVolume: {
+          type: "number",
+          description: "Minimum volume filter (default: 1000)",
+        },
+      },
+      required: ["ticker"],
+    },
+  },
+
+  // Analyst & Ownership Tools
+  {
+    name: "analyst_ratings",
+    description: "Get analyst ratings distribution and consensus for a stock.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "Stock ticker symbol",
+        },
+      },
+      required: ["ticker"],
+    },
+    _meta: {
+      ui: {
+        resourceUri: "ui://bloomberg/analyst-ratings",
+        initialHeight: 360,
+        resizable: true,
+      },
+    },
+  },
+  {
+    name: "price_targets",
+    description: "Get analyst price targets (high/low/mean/median).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "Stock ticker symbol",
+        },
+      },
+      required: ["ticker"],
+    },
+  },
+  {
+    name: "insider_transactions",
+    description: "Get insider buying/selling activity for a stock.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "Stock ticker symbol",
+        },
+        from: {
+          type: "string",
+          description: "Start date (YYYY-MM-DD, optional)",
+        },
+        to: {
+          type: "string",
+          description: "End date (YYYY-MM-DD, optional)",
+        },
+        limit: {
+          type: "number",
+          description: "Max transactions to return (default: 50)",
+        },
+      },
+      required: ["ticker"],
+    },
+    _meta: {
+      ui: {
+        resourceUri: "ui://bloomberg/insider-activity",
+        initialHeight: 420,
+        resizable: true,
+      },
+    },
+  },
+  {
+    name: "institutional_ownership",
+    description: "Get top institutional holders and ownership percentages.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "Stock ticker symbol",
+        },
+      },
+      required: ["ticker"],
+    },
+  },
+
+  // Economic Tools
+  {
+    name: "economic_calendar",
+    description: "Get upcoming economic events (GDP, CPI, FOMC, etc).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        country: {
+          type: "string",
+          description: "Country code (default: US)",
+        },
+        from: {
+          type: "string",
+          description: "Start date (YYYY-MM-DD, optional)",
+        },
+        to: {
+          type: "string",
+          description: "End date (YYYY-MM-DD, optional)",
+        },
+        importance: {
+          type: "string",
+          enum: ["high", "medium", "low"],
+          description: "Filter by impact/importance (optional)",
+        },
+      },
+    },
+    _meta: {
+      ui: {
+        resourceUri: "ui://bloomberg/economic-calendar",
+        initialHeight: 420,
+        resizable: true,
+      },
+    },
+  },
+  {
+    name: "economic_indicators",
+    description: "Get key economic indicator values and history (FRED).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        indicator: {
+          type: "string",
+          description: "FRED indicator ID (e.g., GDP, CPIAUCSL, UNRATE)",
+        },
+        country: {
+          type: "string",
+          description: "Country code (default: US)",
+        },
+      },
+      required: ["indicator"],
+    },
+  },
+
+  // Corporate Actions Tools
+  {
+    name: "dividend_calendar",
+    description: "Get dividend history and upcoming ex-dividend information.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "Stock ticker symbol",
+        },
+        from: {
+          type: "string",
+          description: "Start date (YYYY-MM-DD, optional)",
+        },
+        to: {
+          type: "string",
+          description: "End date (YYYY-MM-DD, optional)",
+        },
+      },
+      required: ["ticker"],
+    },
+    _meta: {
+      ui: {
+        resourceUri: "ui://bloomberg/dividend-calendar",
+        initialHeight: 400,
+        resizable: true,
+      },
+    },
+  },
+  {
+    name: "stock_splits",
+    description: "Get historical stock splits and upcoming split events.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "Stock ticker symbol",
+        },
+        from: {
+          type: "string",
+          description: "Start date (YYYY-MM-DD, optional)",
+        },
+        to: {
+          type: "string",
+          description: "End date (YYYY-MM-DD, optional)",
+        },
+      },
+      required: ["ticker"],
+    },
+  },
+  {
+    name: "ipo_calendar",
+    description: "Get upcoming IPO calendar and pricing information.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        from: {
+          type: "string",
+          description: "Start date (YYYY-MM-DD, optional)",
+        },
+        to: {
+          type: "string",
+          description: "End date (YYYY-MM-DD, optional)",
+        },
+      },
+    },
+  },
+
+  // Forex & Commodities Tools
+  {
+    name: "forex_quote",
+    description: "Get forex quotes for major currency pairs.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        pair: {
+          type: "string",
+          description: "Currency pair (e.g., EUR/USD) optional",
+        },
+        pairs: {
+          type: "array",
+          items: { type: "string" },
+          description: "List of currency pairs (optional)",
+        },
+      },
+    },
+    _meta: {
+      ui: {
+        resourceUri: "ui://bloomberg/forex-dashboard",
+        initialHeight: 360,
+        resizable: true,
+      },
+    },
+  },
+  {
+    name: "commodities_prices",
+    description: "Get commodity prices across metals, energy, and agriculture.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        commodities: {
+          type: "array",
+          items: { type: "string" },
+          description: "Commodity list (e.g., gold, oil, gas). Optional.",
+        },
+      },
+    },
+    _meta: {
+      ui: {
+        resourceUri: "ui://bloomberg/commodities-dashboard",
+        initialHeight: 360,
+        resizable: true,
+      },
+    },
+  },
+
+  // ETF Tools
+  {
+    name: "etf_holdings",
+    description: "Get ETF holdings, sector breakdown, and expense ratio.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "ETF ticker symbol",
+        },
+      },
+      required: ["ticker"],
+    },
+  },
+
+  // Technical Analysis Tools
+  {
+    name: "technical_indicators",
+    description: "Calculate RSI, MACD, SMA, EMA, and Bollinger Bands from historical data.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "Stock ticker symbol",
+        },
+        indicators: {
+          type: "array",
+          items: { type: "string" },
+          description: "Indicators to compute (e.g., rsi, macd, sma20, ema50, bollinger)",
+        },
+        period: {
+          type: "string",
+          description: "Historical period (1D, 1W, 1M, 3M, 6M, 1Y, 5Y, YTD). Default 1M.",
+        },
+      },
+      required: ["ticker", "indicators"],
+    },
+    _meta: {
+      ui: {
+        resourceUri: "ui://bloomberg/technical-chart",
+        initialHeight: 420,
+        resizable: true,
+      },
+    },
+  },
+
+  // Company Intelligence Tools
+  {
+    name: "company_peers",
+    description: "Get peer companies in the same industry.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "Stock ticker symbol",
+        },
+      },
+      required: ["ticker"],
+    },
+  },
+  {
+    name: "supply_chain",
+    description: "Get suppliers and customers with estimated revenue exposure.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "Stock ticker symbol",
+        },
+      },
+      required: ["ticker"],
+    },
+  },
+
+  // ESG Tools
+  {
+    name: "esg_scores",
+    description: "Get ESG scores and peer comparisons for a company.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ticker: {
+          type: "string",
+          description: "Stock ticker symbol",
+        },
+      },
+      required: ["ticker"],
+    },
+    _meta: {
+      ui: {
+        resourceUri: "ui://bloomberg/esg-scores",
+        initialHeight: 360,
+        resizable: true,
+      },
+    },
+  },
 ];
 
 // UI Resources
@@ -628,6 +1079,15 @@ const RESOURCES = [
   { uri: "ui://bloomberg/earnings-calendar", name: "earnings-calendar.html", mimeType: "text/html" },
   { uri: "ui://bloomberg/ratios", name: "ratios.html", mimeType: "text/html" },
   { uri: "ui://bloomberg/fundamentals", name: "fundamentals.html", mimeType: "text/html" },
+  { uri: "ui://bloomberg/options-chain", name: "options-chain.html", mimeType: "text/html" },
+  { uri: "ui://bloomberg/analyst-ratings", name: "analyst-ratings.html", mimeType: "text/html" },
+  { uri: "ui://bloomberg/insider-activity", name: "insider-activity.html", mimeType: "text/html" },
+  { uri: "ui://bloomberg/economic-calendar", name: "economic-calendar.html", mimeType: "text/html" },
+  { uri: "ui://bloomberg/dividend-calendar", name: "dividend-calendar.html", mimeType: "text/html" },
+  { uri: "ui://bloomberg/forex-dashboard", name: "forex-dashboard.html", mimeType: "text/html" },
+  { uri: "ui://bloomberg/commodities-dashboard", name: "commodities-dashboard.html", mimeType: "text/html" },
+  { uri: "ui://bloomberg/technical-chart", name: "technical-chart.html", mimeType: "text/html" },
+  { uri: "ui://bloomberg/esg-scores", name: "esg-scores.html", mimeType: "text/html" },
 ];
 
 // Tool execution
@@ -1391,6 +1851,434 @@ async function executeTool(
       };
     }
 
+    // Options Tools
+    case "options_chain": {
+      const ticker = args.ticker as string;
+      const expiration = args.expiration as string | undefined;
+      const chain = await getOptionsChain(ticker, expiration);
+
+      if (!chain) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: `Options chain not found for ${ticker}` }) }],
+        };
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(chain) }],
+        _meta: {
+          ui: {
+            resourceUri: "ui://bloomberg/options-chain",
+            initialHeight: 520,
+          },
+        },
+      };
+    }
+
+    case "options_unusual_activity": {
+      const ticker = args.ticker as string;
+      const minVolume = (args.minVolume as number) || 1000;
+      const unusual = await getUnusualOptionsActivity(ticker, minVolume);
+
+      return {
+        content: [{ type: "text", text: JSON.stringify({ ticker: ticker.toUpperCase(), unusual }) }],
+      };
+    }
+
+    // Analyst & Ownership Tools
+    case "analyst_ratings": {
+      const ticker = args.ticker as string;
+      const ratings = (await getAnalystRatings(ticker)) || (await getAnalystRecommendations(ticker));
+
+      if (!ratings) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: `Analyst ratings not found for ${ticker}` }) }],
+        };
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(ratings) }],
+        _meta: {
+          ui: {
+            resourceUri: "ui://bloomberg/analyst-ratings",
+            initialHeight: 360,
+          },
+        },
+      };
+    }
+
+    case "price_targets": {
+      const ticker = args.ticker as string;
+      if (!isFinnhubConfigured()) {
+        const fallback = await getAnalystRatings(ticker);
+        if (!fallback?.priceTarget) {
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify({
+                  error: "FINNHUB_API_KEY not configured and no Yahoo price target available.",
+                  ticker: ticker.toUpperCase(),
+                }),
+              },
+            ],
+          };
+        }
+      }
+      let targets = await getPriceTargets(ticker);
+
+      if (!targets) {
+        const fallback = await getAnalystRatings(ticker);
+        if (fallback?.priceTarget) {
+          targets = {
+            ticker: fallback.ticker,
+            targetHigh: fallback.priceTarget,
+            targetLow: fallback.priceTarget,
+            targetMean: fallback.priceTarget,
+            targetMedian: fallback.priceTarget,
+            numberOfAnalysts: fallback.numberOfAnalysts,
+            lastUpdated: new Date().toISOString(),
+          };
+        }
+      }
+
+      if (!targets) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: `Price targets not found for ${ticker}` }) }],
+        };
+      }
+
+      return { content: [{ type: "text", text: JSON.stringify(targets) }] };
+    }
+
+    case "insider_transactions": {
+      const ticker = args.ticker as string;
+      const limit = (args.limit as number) || 50;
+      const from = args.from as string | undefined;
+      const to = args.to as string | undefined;
+
+      let result = await getYahooInsiderTransactions(ticker, limit);
+      if (result.transactions.length === 0) {
+        const finnhubTransactions = await getInsiderTransactions(ticker, from, to);
+        if (finnhubTransactions.length > 0) {
+          const summary = finnhubTransactions.reduce(
+            (acc, t) => {
+              if (t.transactionType === "Buy") {
+                acc.buys += 1;
+                acc.netShares += t.shares;
+                acc.netValue += t.totalValue;
+              } else if (t.transactionType === "Sell") {
+                acc.sells += 1;
+                acc.netShares -= t.shares;
+                acc.netValue -= t.totalValue;
+              }
+              return acc;
+            },
+            { netShares: 0, netValue: 0, buys: 0, sells: 0 }
+          );
+          result = { transactions: finnhubTransactions.slice(0, limit), summary };
+        }
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify({ ticker: ticker.toUpperCase(), ...result }) }],
+        _meta: {
+          ui: {
+            resourceUri: "ui://bloomberg/insider-activity",
+            initialHeight: 420,
+          },
+        },
+      };
+    }
+
+    case "institutional_ownership": {
+      const ticker = args.ticker as string;
+      const ownership = await getInstitutionalOwnership(ticker);
+
+      if (!ownership) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: `Institutional ownership not found for ${ticker}` }) }],
+        };
+      }
+
+      return { content: [{ type: "text", text: JSON.stringify(ownership) }] };
+    }
+
+    // Economic Tools
+    case "economic_calendar": {
+      const country = (args.country as string) || "US";
+      const from = args.from as string | undefined;
+      const to = args.to as string | undefined;
+      const importance = args.importance as "high" | "medium" | "low" | undefined;
+
+      let events = await getEconomicCalendar(country, from, to);
+      if (events.length === 0) {
+        events = getMockEconomicCalendar({
+          importance,
+          startDate: from,
+          endDate: to,
+        });
+      }
+
+      if (importance) {
+        events = events.filter((e) => (e.impact || e.importance) === importance);
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify({ events }) }],
+        _meta: {
+          ui: {
+            resourceUri: "ui://bloomberg/economic-calendar",
+            initialHeight: 420,
+          },
+        },
+      };
+    }
+
+    case "economic_indicators": {
+      const indicator = args.indicator as string;
+      const country = (args.country as string) || "US";
+      if (!isFredConfigured()) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: "FRED_API_KEY not configured. Set it to enable economic_indicators.",
+                indicator,
+                country,
+              }),
+            },
+          ],
+        };
+      }
+      const result = await getEconomicIndicator(indicator, country);
+
+      if (!result) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: `Economic indicator ${indicator} not found` }) }],
+        };
+      }
+
+      return { content: [{ type: "text", text: JSON.stringify(result) }] };
+    }
+
+    // Corporate Actions Tools
+    case "dividend_calendar": {
+      const ticker = args.ticker as string;
+      const from = args.from as string | undefined;
+      const to = args.to as string | undefined;
+
+      const [history, equity] = await Promise.all([
+        getDividendHistory(ticker, from, to),
+        getQuote(ticker),
+      ]);
+
+      const latest = history.length > 0 ? history[history.length - 1] : null;
+      const nextDividend = latest
+        ? {
+            ticker: ticker.toUpperCase(),
+            exDate: latest.date,
+            paymentDate: undefined,
+            recordDate: undefined,
+            amount: latest.amount,
+            frequency: "Unknown",
+            yield: equity?.dividendYield || 0,
+          }
+        : null;
+
+      return {
+        content: [{ type: "text", text: JSON.stringify({ ticker: ticker.toUpperCase(), history, nextDividend }) }],
+        _meta: {
+          ui: {
+            resourceUri: "ui://bloomberg/dividend-calendar",
+            initialHeight: 400,
+          },
+        },
+      };
+    }
+
+    case "stock_splits": {
+      const ticker = args.ticker as string;
+      const from = args.from as string | undefined;
+      const to = args.to as string | undefined;
+      const splits = await getStockSplits(ticker, from, to);
+
+      return {
+        content: [{ type: "text", text: JSON.stringify({ ticker: ticker.toUpperCase(), splits }) }],
+      };
+    }
+
+    case "ipo_calendar": {
+      if (!isFinnhubConfigured()) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: "FINNHUB_API_KEY not configured. Set it to enable ipo_calendar.",
+              }),
+            },
+          ],
+        };
+      }
+      const from = args.from as string | undefined;
+      const to = args.to as string | undefined;
+      const ipos = await getIpoCalendar(from, to);
+
+      return {
+        content: [{ type: "text", text: JSON.stringify({ ipos }) }],
+      };
+    }
+
+    // Forex & Commodities Tools
+    case "forex_quote": {
+      const pair = args.pair as string | undefined;
+      const pairs = (args.pairs as string[] | undefined) || (pair ? [pair] : [
+        "EUR/USD",
+        "GBP/USD",
+        "USD/JPY",
+        "USD/CHF",
+        "AUD/USD",
+        "USD/CAD",
+      ]);
+
+      const quotes = (await Promise.all(pairs.map((p) => getForexQuote(p)))).filter(
+        (q): q is NonNullable<typeof q> => q !== null
+      );
+
+      return {
+        content: [{ type: "text", text: JSON.stringify({ quotes }) }],
+        _meta: {
+          ui: {
+            resourceUri: "ui://bloomberg/forex-dashboard",
+            initialHeight: 360,
+          },
+        },
+      };
+    }
+
+    case "commodities_prices": {
+      const commodities = (args.commodities as string[] | undefined) || [];
+      const items = await getCommodityPrices(commodities);
+
+      return {
+        content: [{ type: "text", text: JSON.stringify({ items }) }],
+        _meta: {
+          ui: {
+            resourceUri: "ui://bloomberg/commodities-dashboard",
+            initialHeight: 360,
+          },
+        },
+      };
+    }
+
+    // ETF Tools
+    case "etf_holdings": {
+      const ticker = args.ticker as string;
+      const holdings = await getEtfHoldings(ticker);
+
+      if (!holdings) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: `ETF holdings not found for ${ticker}` }) }],
+        };
+      }
+
+      return { content: [{ type: "text", text: JSON.stringify(holdings) }] };
+    }
+
+    // Technical Analysis Tools
+    case "technical_indicators": {
+      const ticker = args.ticker as string;
+      const indicators = (args.indicators as string[]) || [];
+      const period = (args.period as string) || "1M";
+      const result = await calculateTechnicalIndicators(ticker, indicators, period);
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(result) }],
+        _meta: {
+          ui: {
+            resourceUri: "ui://bloomberg/technical-chart",
+            initialHeight: 420,
+          },
+        },
+      };
+    }
+
+    // Company Intelligence Tools
+    case "company_peers": {
+      const ticker = args.ticker as string;
+      if (!isFinnhubConfigured()) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: "FINNHUB_API_KEY not configured. Set it to enable company_peers.",
+                ticker: ticker.toUpperCase(),
+              }),
+            },
+          ],
+        };
+      }
+      const peers = await getCompanyPeers(ticker);
+
+      if (!peers) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: `Peers not found for ${ticker}` }) }],
+        };
+      }
+
+      return { content: [{ type: "text", text: JSON.stringify(peers) }] };
+    }
+
+    case "supply_chain": {
+      const ticker = args.ticker as string;
+      if (!isFinnhubConfigured()) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: JSON.stringify({
+                error: "FINNHUB_API_KEY not configured. Set it to enable supply_chain.",
+                ticker: ticker.toUpperCase(),
+              }),
+            },
+          ],
+        };
+      }
+      const chain = await getSupplyChain(ticker);
+
+      if (!chain) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: `Supply chain not found for ${ticker}` }) }],
+        };
+      }
+
+      return { content: [{ type: "text", text: JSON.stringify(chain) }] };
+    }
+
+    // ESG Tools
+    case "esg_scores": {
+      const ticker = args.ticker as string;
+      const scores = await getEsgScores(ticker);
+
+      if (!scores) {
+        return {
+          content: [{ type: "text", text: JSON.stringify({ error: `ESG scores not found for ${ticker}` }) }],
+        };
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify(scores) }],
+        _meta: {
+          ui: {
+            resourceUri: "ui://bloomberg/esg-scores",
+            initialHeight: 360,
+          },
+        },
+      };
+    }
+
     default:
       throw new Error(`Unknown tool: ${name}`);
   }
@@ -1427,6 +2315,24 @@ function readResource(uri: string): {
       return { contents: [{ uri, mimeType: "text/html", text: getRatiosViewHtml() }] };
     case "ui://bloomberg/fundamentals":
       return { contents: [{ uri, mimeType: "text/html", text: getFundamentalsViewHtml() }] };
+    case "ui://bloomberg/options-chain":
+      return { contents: [{ uri, mimeType: "text/html", text: getOptionsChainViewHtml() }] };
+    case "ui://bloomberg/analyst-ratings":
+      return { contents: [{ uri, mimeType: "text/html", text: getAnalystRatingsViewHtml() }] };
+    case "ui://bloomberg/insider-activity":
+      return { contents: [{ uri, mimeType: "text/html", text: getInsiderActivityViewHtml() }] };
+    case "ui://bloomberg/economic-calendar":
+      return { contents: [{ uri, mimeType: "text/html", text: getEconomicCalendarViewHtml() }] };
+    case "ui://bloomberg/dividend-calendar":
+      return { contents: [{ uri, mimeType: "text/html", text: getDividendCalendarViewHtml() }] };
+    case "ui://bloomberg/forex-dashboard":
+      return { contents: [{ uri, mimeType: "text/html", text: getForexDashboardViewHtml() }] };
+    case "ui://bloomberg/commodities-dashboard":
+      return { contents: [{ uri, mimeType: "text/html", text: getCommoditiesDashboardViewHtml() }] };
+    case "ui://bloomberg/technical-chart":
+      return { contents: [{ uri, mimeType: "text/html", text: getTechnicalChartViewHtml() }] };
+    case "ui://bloomberg/esg-scores":
+      return { contents: [{ uri, mimeType: "text/html", text: getEsgScoresViewHtml() }] };
     default:
       throw new Error(`Unknown resource: ${uri}`);
   }

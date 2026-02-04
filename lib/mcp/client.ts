@@ -253,6 +253,31 @@ class MCPClientManager {
   }
 
   /**
+   * Refresh tool list for a connected server
+   */
+  async refreshTools(serverId: string): Promise<MCPTool[]> {
+    const connection = this.connections.get(serverId);
+    if (!connection) {
+      throw new Error(`Not connected to server: ${serverId}`);
+    }
+
+    const toolsResult = await this.jsonRpcRequest<ToolsListResult>(
+      connection.baseUrl,
+      "tools/list"
+    );
+
+    const tools: MCPTool[] = toolsResult.tools.map((tool) => ({
+      name: tool.name,
+      description: tool.description,
+      inputSchema: tool.inputSchema,
+      _meta: tool._meta,
+    }));
+
+    connection.tools = tools;
+    return tools;
+  }
+
+  /**
    * Get all tools from all connected servers
    */
   getAllTools(): MCPTool[] {

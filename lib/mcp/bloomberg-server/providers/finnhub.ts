@@ -3,11 +3,25 @@
  * Uses Finnhub API for news with sentiment and earnings calendar
  */
 
-import type { NewsArticle, EarningsEvent } from "../types";
+import type {
+  NewsArticle,
+  EarningsEvent,
+  AnalystRatings,
+  InsiderTransaction,
+  CompanyPeers,
+  EconomicEvent,
+  PriceTarget,
+  SupplyChainData,
+  IpoEvent,
+} from "../types";
 import { cache, CACHE_TTL } from "./cache";
 
 const FINNHUB_API_KEY = process.env.FINNHUB_API_KEY || "";
 const FINNHUB_BASE_URL = "https://finnhub.io/api/v1";
+
+export function isFinnhubConfigured(): boolean {
+  return Boolean(FINNHUB_API_KEY);
+}
 
 interface FinnhubNewsItem {
   id: number;
@@ -31,6 +45,58 @@ interface FinnhubEarningsItem {
   revenueEstimate: number | null;
   symbol: string;
   year: number;
+}
+
+interface FinnhubRecommendation {
+  period: string;
+  buy: number;
+  hold: number;
+  sell: number;
+  strongBuy: number;
+  strongSell: number;
+}
+
+interface FinnhubInsiderTransactionItem {
+  name: string;
+  share: number;
+  change: number;
+  transactionDate: string;
+  transactionCode: string;
+  transactionPrice: number;
+  currency?: string;
+}
+
+interface FinnhubIpoCalendarResponse {
+  ipoCalendar?: Array<{
+    symbol: string;
+    companyName: string;
+    date: string;
+    price: string;
+    numberOfShares: number;
+    totalSharesValue: number;
+    exchange: string;
+  }>;
+}
+
+interface FinnhubEconomicCalendarResponse {
+  economicCalendar?: Array<{
+    actual: number | null;
+    country: string;
+    estimate: number | null;
+    event: string;
+    impact: "high" | "medium" | "low";
+    previous: number | null;
+    time: string;
+    unit?: string;
+  }>;
+}
+
+interface FinnhubSupplyChainResponse {
+  data?: Array<{
+    symbol: string;
+    suppliers?: Array<{ name: string; symbol?: string; proportion?: number }>;
+    customers?: Array<{ name: string; symbol?: string; proportion?: number }>;
+  }>;
 }
 
 async function fetchFinnhub<T>(endpoint: string, params: Record<string, string> = {}): Promise<T | null> {
@@ -274,6 +340,232 @@ export async function getMarketNews(
 
   cache.set(cacheKey, articles, CACHE_TTL.NEWS);
   return applyNewsFilters(articles, options);
+}
+
+// ============================================
+// New Bloomberg MCP Provider Functions
+// ============================================
+
+export async function getAnalystRecommendations(ticker: string): Promise<AnalystRatings | null> {
+  const cacheKey = `finnhub:analyst:${ticker.toUpperCase()}`;
+  const cached = cache.get<AnalystRatings>(cacheKey);
+  if (cached) return cached;
+
+  const data = await fetchFinnhub<FinnhubRecommendation[]>("/stock/recommendation", {
+    symbol: ticker.toUpperCase(),
+  });
+
+  if (!data || !Array.isArray(data) || data.length === 0) return null;
+
+  const latest = data[0];
+  const total =
+    latest.strongBuy + latest.buy + latest.hold + latest.sell + latest.strongSell;
+  const score =
+    total > 0
+      ? (latest.strongBuy * 1 +
+          latest.buy * 2 +
+          latest.hold * 3 +
+          latest.sell * 4 +
+          latest.strongSell * 5) /
+        total
+      : 3;
+
+  let consensus: AnalystRatings["consensus"] = "Hold";
+  if (score <= 1.5) consensus = "Strong Buy";
+  else if (score <= 2.5) consensus = "Buy";
+  else if (score <= 3.5) consensus = "Hold";
+  else if (score <= 4.5) consensus = "Sell";
+  else consensus = "Strong Sell";
+
+  const ratings: AnalystRatings = {
+    ticker: ticker.toUpperCase(),
+    strongBuy: latest.strongBuy,
+    buy: latest.buy,
+    hold: latest.hold,
+    sell: latest.sell,
+    strongSell: latest.strongSell,
+    consensus,
+    numberOfAnalysts: total,
+  };
+
+  cache.set(cacheKey, ratings, CACHE_TTL.FUNDAMENTALS);
+  return ratings;
+}
+
+export async function getInsiderTransactions(
+  ticker: string,
+  from?: string,
+  to?: string
+): Promise<InsiderTransaction[]> {
+  const cacheKey = `finnhub:insider:${ticker.toUpperCase()}:${from || "start"}:${to || "now"}`;
+  const cached = cache.get<InsiderTransaction[]>(cacheKey);
+  if (cached) return cached;
+
+  const data = await fetchFinnhub<{ data: FinnhubInsiderTransactionItem[] }>(
+    "/stock/insider-transactions",
+    {
+      symbol: ticker.toUpperCase(),
+      from: from || "",
+      to: to || "",
+    }
+  );
+
+  if (!data || !Array.isArray(data.data)) return [];
+
+  const transactions: InsiderTransaction[] = data.data.map((item) => ({
+    name: item.name || "Insider",
+    title: "Insider",
+    transactionDate: item.transactionDate,
+    transactionType: item.change >= 0 ? "Buy" : "Sell",
+    shares: Math.abs(item.share),
+    pricePerShare: item.transactionPrice || 0,
+    totalValue: Math.abs(item.share) * (item.transactionPrice || 0),
+    sharesOwned: 0,
+  }));
+
+  cache.set(cacheKey, transactions, CACHE_TTL.FUNDAMENTALS);
+  return transactions;
+}
+
+export async function getCompanyPeers(ticker: string): Promise<CompanyPeers | null> {
+  const cacheKey = `finnhub:peers:${ticker.toUpperCase()}`;
+  const cached = cache.get<CompanyPeers>(cacheKey);
+  if (cached) return cached;
+
+  const data = await fetchFinnhub<string[]>("/stock/peers", {
+    symbol: ticker.toUpperCase(),
+  });
+
+  if (!data || !Array.isArray(data)) return null;
+
+  const result: CompanyPeers = {
+    ticker: ticker.toUpperCase(),
+    peers: data.filter((p) => typeof p === "string"),
+  };
+
+  cache.set(cacheKey, result, CACHE_TTL.FUNDAMENTALS);
+  return result;
+}
+
+export async function getEconomicCalendar(
+  country: string = "US",
+  from?: string,
+  to?: string
+): Promise<EconomicEvent[]> {
+  const cacheKey = `finnhub:economic:${country}:${from || "start"}:${to || "now"}`;
+  const cached = cache.get<EconomicEvent[]>(cacheKey);
+  if (cached) return cached;
+
+  const data = await fetchFinnhub<FinnhubEconomicCalendarResponse>("/calendar/economic", {
+    from: from || "",
+    to: to || "",
+    country,
+  });
+
+  const events: EconomicEvent[] = (data?.economicCalendar || []).map((event, idx) => ({
+    id: `${country}-${event.event}-${event.time}-${idx}`,
+    country: event.country,
+    event: event.event,
+    date: event.time,
+    actual: event.actual ?? null,
+    estimate: event.estimate ?? undefined,
+    previous: event.previous ?? undefined,
+    impact: event.impact,
+    unit: event.unit,
+  }));
+
+  cache.set(cacheKey, events, CACHE_TTL.FUNDAMENTALS);
+  return events;
+}
+
+export async function getPriceTargets(ticker: string): Promise<PriceTarget | null> {
+  const cacheKey = `finnhub:price-target:${ticker.toUpperCase()}`;
+  const cached = cache.get<PriceTarget>(cacheKey);
+  if (cached) return cached;
+
+  const data = await fetchFinnhub<{
+    targetHigh: number;
+    targetLow: number;
+    targetMean: number;
+    targetMedian: number;
+    lastUpdated: string;
+    numberOfAnalysts: number;
+  }>("/stock/price-target", {
+    symbol: ticker.toUpperCase(),
+  });
+
+  if (!data) return null;
+
+  const result: PriceTarget = {
+    ticker: ticker.toUpperCase(),
+    targetHigh: data.targetHigh,
+    targetLow: data.targetLow,
+    targetMean: data.targetMean,
+    targetMedian: data.targetMedian,
+    numberOfAnalysts: data.numberOfAnalysts,
+    lastUpdated: data.lastUpdated || new Date().toISOString(),
+  };
+
+  cache.set(cacheKey, result, CACHE_TTL.FUNDAMENTALS);
+  return result;
+}
+
+export async function getSupplyChain(ticker: string): Promise<SupplyChainData | null> {
+  const cacheKey = `finnhub:supply-chain:${ticker.toUpperCase()}`;
+  const cached = cache.get<SupplyChainData>(cacheKey);
+  if (cached) return cached;
+
+  const data = await fetchFinnhub<FinnhubSupplyChainResponse>("/stock/supply-chain", {
+    symbol: ticker.toUpperCase(),
+  });
+
+  const entry = data?.data?.[0];
+  if (!entry) return null;
+
+  const suppliers = (entry.suppliers || []).map((s) => ({
+    name: s.name,
+    ticker: s.symbol,
+    exposure: s.proportion || 0,
+  }));
+
+  const customers = (entry.customers || []).map((c) => ({
+    name: c.name,
+    ticker: c.symbol,
+    exposure: c.proportion || 0,
+  }));
+
+  const result: SupplyChainData = {
+    ticker: entry.symbol || ticker.toUpperCase(),
+    suppliers,
+    customers,
+  };
+
+  cache.set(cacheKey, result, CACHE_TTL.FUNDAMENTALS);
+  return result;
+}
+
+export async function getIpoCalendar(from?: string, to?: string): Promise<IpoEvent[]> {
+  const cacheKey = `finnhub:ipo:${from || "start"}:${to || "now"}`;
+  const cached = cache.get<IpoEvent[]>(cacheKey);
+  if (cached) return cached;
+
+  const data = await fetchFinnhub<FinnhubIpoCalendarResponse>("/calendar/ipo", {
+    from: from || "",
+    to: to || "",
+  });
+
+  const events: IpoEvent[] = (data?.ipoCalendar || []).map((ipo) => ({
+    ticker: ipo.symbol,
+    company: ipo.companyName,
+    date: ipo.date,
+    priceRange: ipo.price,
+    shares: ipo.numberOfShares,
+    expectedValue: ipo.totalSharesValue,
+    exchange: ipo.exchange,
+  }));
+
+  cache.set(cacheKey, events, CACHE_TTL.FUNDAMENTALS);
+  return events;
 }
 
 /**

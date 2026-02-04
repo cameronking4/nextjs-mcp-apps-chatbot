@@ -189,11 +189,15 @@ export interface EarningsEvent {
 export interface EconomicEvent {
   id: string;
   event: string;
-  eventTime: string;
-  estimate: string;
-  actual: string | null;
-  previous: string;
-  importance: 'high' | 'medium' | 'low';
+  eventTime?: string;
+  date?: string;
+  country?: string;
+  estimate?: number | string;
+  actual?: number | string | null;
+  previous?: number | string;
+  importance?: 'high' | 'medium' | 'low';
+  impact?: 'high' | 'medium' | 'low';
+  unit?: string;
 }
 
 // ============================================
@@ -204,6 +208,266 @@ export interface Sector {
   id: string;
   name: string;
   industries: string[];
+}
+
+// ============================================
+// Options Types
+// ============================================
+
+export interface OptionsChain {
+  ticker: string;
+  expiration: string;
+  calls: OptionContract[];
+  puts: OptionContract[];
+  underlyingPrice: number;
+  availableExpirations?: string[];
+}
+
+export interface OptionContract {
+  strike: number;
+  last: number;
+  bid: number;
+  ask: number;
+  volume: number;
+  openInterest: number;
+  impliedVolatility: number;
+  delta?: number;
+  gamma?: number;
+  theta?: number;
+  vega?: number;
+  inTheMoney: boolean;
+}
+
+export interface UnusualOptionsActivity {
+  ticker: string;
+  strike: number;
+  expiration: string;
+  type: 'call' | 'put';
+  volume: number;
+  openInterest: number;
+  volumeOiRatio: number;
+  unusualScore: number;
+  lastPrice: number;
+}
+
+// ============================================
+// Analyst & Ownership Types
+// ============================================
+
+export interface AnalystRatings {
+  ticker: string;
+  strongBuy: number;
+  buy: number;
+  hold: number;
+  sell: number;
+  strongSell: number;
+  consensus: 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell';
+  priceTarget?: number;
+  numberOfAnalysts: number;
+}
+
+export interface PriceTarget {
+  ticker: string;
+  targetHigh: number;
+  targetLow: number;
+  targetMean: number;
+  targetMedian: number;
+  numberOfAnalysts: number;
+  lastUpdated: string;
+}
+
+export interface InsiderTransaction {
+  name: string;
+  title: string;
+  transactionDate: string;
+  transactionType: 'Buy' | 'Sell' | 'Option Exercise' | 'Gift' | 'Other';
+  shares: number;
+  pricePerShare: number;
+  totalValue: number;
+  sharesOwned: number;
+}
+
+export interface InsiderSummary {
+  netShares: number;
+  netValue: number;
+  buys: number;
+  sells: number;
+}
+
+export interface InstitutionalHolder {
+  name: string;
+  shares: number;
+  value: number;
+  percentOwned: number;
+  dateReported: string;
+}
+
+export interface InstitutionalOwnership {
+  ticker: string;
+  totalShares: number;
+  totalValue: number;
+  percentOwned: number;
+  holders: InstitutionalHolder[];
+}
+
+// ============================================
+// Economic Data Types
+// ============================================
+
+export interface EconomicIndicator {
+  indicator: string;
+  name: string;
+  value: number;
+  date: string;
+  unit: string;
+  frequency: string;
+  change: number;
+  changePercent: number;
+  history: Array<{ date: string; value: number }>;
+}
+
+// ============================================
+// Corporate Actions Types
+// ============================================
+
+export interface DividendEvent {
+  ticker: string;
+  exDate: string;
+  paymentDate?: string;
+  recordDate?: string;
+  amount: number;
+  frequency: string;
+  yield: number;
+}
+
+export interface DividendHistory {
+  date: string;
+  amount: number;
+}
+
+export interface StockSplit {
+  ticker: string;
+  date: string;
+  ratio: string;
+  fromFactor: number;
+  toFactor: number;
+}
+
+export interface IpoEvent {
+  ticker: string;
+  company: string;
+  date: string;
+  priceRange: string;
+  shares: number;
+  expectedValue: number;
+  exchange: string;
+}
+
+// ============================================
+// Forex & Commodities Types
+// ============================================
+
+export interface ForexQuote {
+  pair: string;
+  rate: number;
+  bid: number;
+  ask: number;
+  change: number;
+  changePercent: number;
+  high: number;
+  low: number;
+  timestamp: string;
+}
+
+export interface CommodityPrice {
+  symbol: string;
+  name: string;
+  category: 'metals' | 'energy' | 'agriculture';
+  price: number;
+  change: number;
+  changePercent: number;
+  unit: string;
+  timestamp: string;
+}
+
+// ============================================
+// ETF Types
+// ============================================
+
+export interface EtfHolding {
+  ticker: string;
+  name: string;
+  weight: number;
+}
+
+export interface EtfSectorBreakdown {
+  sector: string;
+  weight: number;
+}
+
+export interface EtfHoldings {
+  ticker: string;
+  name: string;
+  expenseRatio: number;
+  aum: number;
+  holdings: EtfHolding[];
+  sectorBreakdown: EtfSectorBreakdown[];
+}
+
+// ============================================
+// Technical Analysis Types
+// ============================================
+
+export interface TechnicalIndicators {
+  ticker: string;
+  period: string;
+  indicators: {
+    rsi?: number[];
+    macd?: { macd: number[]; signal: number[]; histogram: number[] };
+    sma?: { [period: number]: number[] };
+    ema?: { [period: number]: number[] };
+    bollingerBands?: { upper: number[]; middle: number[]; lower: number[] };
+  };
+  timestamps: string[];
+}
+
+// ============================================
+// Company Intelligence Types
+// ============================================
+
+export interface CompanyPeers {
+  ticker: string;
+  peers: string[];
+}
+
+export interface SupplyChainData {
+  ticker: string;
+  suppliers: Array<{
+    name: string;
+    ticker?: string;
+    exposure: number;
+  }>;
+  customers: Array<{
+    name: string;
+    ticker?: string;
+    exposure: number;
+  }>;
+}
+
+// ============================================
+// ESG Types
+// ============================================
+
+export interface EsgScores {
+  ticker: string;
+  totalScore: number;
+  environmentScore: number;
+  socialScore: number;
+  governanceScore: number;
+  controversyLevel: number;
+  peerGroup: string;
+  peerAverage: number;
+  lastUpdated: string;
 }
 
 // ============================================
@@ -270,4 +534,403 @@ export interface CompanyResearch {
   fundamentals: Fundamentals;
   recentNews: NewsArticle[];
   upcomingEarnings: EarningsEvent | null;
+}
+
+// ============================================
+// Options Types
+// ============================================
+
+export interface OptionsChain {
+  ticker: string;
+  underlyingPrice: number;
+  expirations: string[];
+  selectedExpiration: string;
+  calls: OptionContract[];
+  puts: OptionContract[];
+}
+
+export interface OptionContract {
+  contractSymbol: string;
+  strike: number;
+  expiration: string;
+  type: 'call' | 'put';
+  lastPrice: number;
+  bid: number;
+  ask: number;
+  change: number;
+  changePercent: number;
+  volume: number;
+  openInterest: number;
+  impliedVolatility: number;
+  delta?: number;
+  gamma?: number;
+  theta?: number;
+  vega?: number;
+  rho?: number;
+  inTheMoney: boolean;
+}
+
+export interface UnusualOptionsActivity {
+  ticker: string;
+  contractSymbol: string;
+  strike: number;
+  expiration: string;
+  type: 'call' | 'put';
+  volume: number;
+  openInterest: number;
+  volumeOiRatio: number;
+  unusualScore: number;
+  lastPrice: number;
+  underlyingPrice: number;
+}
+
+// ============================================
+// Analyst & Institutional Types
+// ============================================
+
+export interface AnalystRatings {
+  ticker: string;
+  strongBuy: number;
+  buy: number;
+  hold: number;
+  sell: number;
+  strongSell: number;
+  totalAnalysts: number;
+  consensus: 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell';
+  averageScore: number; // 1-5 scale
+  priceTarget?: PriceTarget;
+}
+
+export interface PriceTarget {
+  ticker: string;
+  targetHigh: number;
+  targetLow: number;
+  targetMean: number;
+  targetMedian: number;
+  currentPrice: number;
+  numberOfAnalysts: number;
+  upside: number; // percentage
+  lastUpdated: string;
+}
+
+export interface InsiderTransaction {
+  ticker: string;
+  name: string;
+  title: string;
+  transactionDate: string;
+  transactionType: 'Buy' | 'Sell' | 'Option Exercise' | 'Gift' | 'Other';
+  shares: number;
+  pricePerShare: number;
+  totalValue: number;
+  sharesOwned: number;
+  filingDate: string;
+}
+
+export interface InsiderSummary {
+  ticker: string;
+  transactions: InsiderTransaction[];
+  netShares: number;
+  netValue: number;
+  buyCount: number;
+  sellCount: number;
+  sentiment: 'Bullish' | 'Bearish' | 'Neutral';
+}
+
+export interface InstitutionalHolder {
+  name: string;
+  shares: number;
+  value: number;
+  percentOwned: number;
+  changeShares: number;
+  changePercent: number;
+  dateReported: string;
+}
+
+export interface InstitutionalOwnership {
+  ticker: string;
+  totalInstitutionalShares: number;
+  totalInstitutionalValue: number;
+  percentInstitutional: number;
+  numberOfHolders: number;
+  topHolders: InstitutionalHolder[];
+}
+
+// ============================================
+// Economic Data Types
+// ============================================
+
+export interface EconomicCalendarEvent {
+  id: string;
+  country: string;
+  event: string;
+  date: string;
+  time: string;
+  actual?: number | string;
+  estimate?: number | string;
+  previous?: number | string;
+  impact: 'high' | 'medium' | 'low';
+  unit?: string;
+  currency?: string;
+}
+
+export interface EconomicIndicator {
+  id: string;
+  indicator: string;
+  name: string;
+  value: number;
+  date: string;
+  unit: string;
+  frequency: string;
+  change: number;
+  changePercent: number;
+  history: Array<{ date: string; value: number }>;
+  country: string;
+}
+
+// ============================================
+// Corporate Actions Types
+// ============================================
+
+export interface DividendEvent {
+  ticker: string;
+  company: string;
+  exDate: string;
+  paymentDate: string;
+  recordDate: string;
+  declarationDate: string;
+  amount: number;
+  frequency: 'Annual' | 'Semi-Annual' | 'Quarterly' | 'Monthly' | 'Irregular';
+  yield: number;
+  currency: string;
+}
+
+export interface DividendHistory {
+  ticker: string;
+  dividends: DividendEvent[];
+  annualDividend: number;
+  dividendYield: number;
+  payoutRatio: number;
+  dividendGrowth5Y: number;
+}
+
+export interface StockSplit {
+  ticker: string;
+  company: string;
+  date: string;
+  ratio: string;
+  fromFactor: number;
+  toFactor: number;
+  announcementDate?: string;
+}
+
+export interface IpoEvent {
+  ticker?: string;
+  company: string;
+  date: string;
+  priceRangeLow: number;
+  priceRangeHigh: number;
+  price?: number;
+  shares: number;
+  expectedValue: number;
+  exchange: string;
+  status: 'Filed' | 'Priced' | 'Withdrawn' | 'Scheduled';
+  underwriters?: string[];
+}
+
+// ============================================
+// Forex & Commodities Types
+// ============================================
+
+export interface ForexQuote {
+  pair: string;
+  baseCurrency: string;
+  quoteCurrency: string;
+  rate: number;
+  bid: number;
+  ask: number;
+  spread: number;
+  change: number;
+  changePercent: number;
+  high: number;
+  low: number;
+  open: number;
+  previousClose: number;
+  timestamp: string;
+}
+
+export interface CommodityPrice {
+  symbol: string;
+  name: string;
+  category: 'metals' | 'energy' | 'agriculture' | 'livestock';
+  price: number;
+  change: number;
+  changePercent: number;
+  high: number;
+  low: number;
+  open: number;
+  previousClose: number;
+  unit: string;
+  currency: string;
+  timestamp: string;
+}
+
+// ============================================
+// ETF Types
+// ============================================
+
+export interface EtfHolding {
+  ticker: string;
+  name: string;
+  weight: number;
+  shares?: number;
+  value?: number;
+}
+
+export interface EtfSectorBreakdown {
+  sector: string;
+  weight: number;
+}
+
+export interface EtfHoldings {
+  ticker: string;
+  name: string;
+  expenseRatio: number;
+  aum: number;
+  nav: number;
+  inceptionDate: string;
+  category: string;
+  holdings: EtfHolding[];
+  totalHoldings: number;
+  sectorBreakdown: EtfSectorBreakdown[];
+  topCountries?: Array<{ country: string; weight: number }>;
+}
+
+// ============================================
+// Technical Analysis Types
+// ============================================
+
+export interface TechnicalIndicatorValue {
+  timestamp: string;
+  value: number;
+}
+
+export interface MACDValue {
+  timestamp: string;
+  macd: number;
+  signal: number;
+  histogram: number;
+}
+
+export interface BollingerBandsValue {
+  timestamp: string;
+  upper: number;
+  middle: number;
+  lower: number;
+}
+
+export interface TechnicalIndicators {
+  ticker: string;
+  period: string;
+  currentPrice: number;
+  rsi?: {
+    value: number;
+    signal: 'Overbought' | 'Oversold' | 'Neutral';
+    history: TechnicalIndicatorValue[];
+  };
+  macd?: {
+    macd: number;
+    signal: number;
+    histogram: number;
+    trend: 'Bullish' | 'Bearish' | 'Neutral';
+    history: MACDValue[];
+  };
+  sma?: {
+    [period: number]: {
+      value: number;
+      history: TechnicalIndicatorValue[];
+    };
+  };
+  ema?: {
+    [period: number]: {
+      value: number;
+      history: TechnicalIndicatorValue[];
+    };
+  };
+  bollingerBands?: {
+    upper: number;
+    middle: number;
+    lower: number;
+    bandwidth: number;
+    percentB: number;
+    history: BollingerBandsValue[];
+  };
+  atr?: {
+    value: number;
+    history: TechnicalIndicatorValue[];
+  };
+  stochastic?: {
+    k: number;
+    d: number;
+    signal: 'Overbought' | 'Oversold' | 'Neutral';
+  };
+}
+
+// ============================================
+// Company Intelligence Types
+// ============================================
+
+export interface CompanyPeer {
+  ticker: string;
+  name: string;
+  marketCap?: number;
+  sector?: string;
+  industry?: string;
+}
+
+export interface CompanyPeers {
+  ticker: string;
+  company: string;
+  sector: string;
+  industry: string;
+  peers: CompanyPeer[];
+}
+
+export interface SupplyChainRelation {
+  ticker?: string;
+  name: string;
+  relationship: 'supplier' | 'customer';
+  exposure?: number; // percentage of revenue
+  country?: string;
+}
+
+export interface SupplyChainData {
+  ticker: string;
+  company: string;
+  suppliers: SupplyChainRelation[];
+  customers: SupplyChainRelation[];
+}
+
+// ============================================
+// ESG Types
+// ============================================
+
+export interface EsgScores {
+  ticker: string;
+  company: string;
+  totalScore: number;
+  environmentScore: number;
+  socialScore: number;
+  governanceScore: number;
+  environmentGrade?: string;
+  socialGrade?: string;
+  governanceGrade?: string;
+  controversyLevel: number; // 0-5, 5 being most severe
+  peerGroup: string;
+  peerRank?: number;
+  peerCount?: number;
+  lastUpdated: string;
+  highlights?: {
+    strengths: string[];
+    weaknesses: string[];
+  };
 }

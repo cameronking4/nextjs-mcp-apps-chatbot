@@ -64,8 +64,8 @@ export async function POST(request: Request) {
             { status: 400 }
           );
         }
-        const tools = await mcpClientManager.listTools(body.serverId);
-        return NextResponse.json(tools);
+        const tools = await mcpClientManager.refreshTools(body.serverId);
+        return NextResponse.json({ tools });
       }
 
       case "callTool": {

@@ -34,6 +34,16 @@
 - [Auth.js](https://authjs.dev)
   - Simple and secure authentication
 
+## Bloomberg Terminal MCP (Optional)
+
+This project includes a Bloomberg Terminal-style MCP server with 38 financial tools (quotes, news, options, analyst data, economic indicators, corporate actions, forex/commodities, ETFs, technicals, ESG).
+
+To enable all data providers, set the following keys in `.env.example` / `.env.local`:
+- `FINNHUB_API_KEY` (news, earnings, analyst data)
+- `FIRECRAWL_API_KEY` (news article scraping/search)
+- `FMP_API_KEY` (optional screener fallback)
+- `FRED_API_KEY` (optional economic indicators)
+
 ## Model Providers
 
 This template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. The default configuration includes [xAI](https://x.ai) models (`grok-2-vision-1212`, `grok-3-mini`) routed through the gateway.

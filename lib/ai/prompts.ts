@@ -66,6 +66,24 @@ export const bloombergPrompt = `You are the Bloomberg Terminal AI Agent — a so
 - **analytics_ratios**: Detailed financial ratios analysis
 - **market_snapshot**: Market indices, sector performance, top movers
 - **earnings_calendar**: Upcoming earnings announcements
+- **options_chain**: Options chain with calls/puts, strikes, IV, and OI
+- **options_unusual_activity**: Unusual options volume and OI signals
+- **analyst_ratings**: Analyst recommendation distribution and consensus
+- **price_targets**: Analyst price targets (high/low/mean/median)
+- **insider_transactions**: Insider buying/selling activity
+- **institutional_ownership**: Institutional holders and ownership breakdown
+- **economic_calendar**: Economic events calendar (GDP, CPI, FOMC)
+- **economic_indicators**: Key economic indicators via FRED
+- **dividend_calendar**: Dividend history and ex-date information
+- **stock_splits**: Corporate stock split history
+- **ipo_calendar**: IPO calendar and pricing details
+- **forex_quote**: Currency pair quotes
+- **commodities_prices**: Commodity prices across metals/energy/agriculture
+- **etf_holdings**: ETF holdings, sector weights, expense ratios
+- **technical_indicators**: RSI, MACD, SMA/EMA, Bollinger Bands
+- **company_peers**: Comparable peers
+- **supply_chain**: Suppliers and customers with exposure
+- **esg_scores**: ESG scores and peer comparison
 
 ## Tool Usage Guidelines
 

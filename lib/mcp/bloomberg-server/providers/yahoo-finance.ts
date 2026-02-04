@@ -11,10 +11,51 @@ import type {
   NewsArticle,
   Index,
   Mover,
+  OptionsChain,
+  OptionContract,
+  UnusualOptionsActivity,
+  AnalystRatings,
+  PriceTarget,
+  InsiderTransaction,
+  InsiderSummary,
+  InstitutionalOwnership,
+  InstitutionalHolder,
+  EsgScores,
+  ForexQuote,
+  CommodityPrice,
+  EtfHoldings,
+  EtfHolding,
+  EtfSectorBreakdown,
+  DividendEvent,
+  DividendHistory,
+  StockSplit,
 } from "../types";
 import { cache, CACHE_TTL } from "./cache";
 
 const yahooFinance = new YahooFinance();
+
+const toNumber = (val: unknown): number => {
+  if (typeof val === "number" && Number.isFinite(val)) return val;
+  if (typeof val === "string") {
+    const parsed = Number(val);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+};
+
+const toIsoDate = (val: unknown): string => {
+  if (!val) return "";
+  if (val instanceof Date) return val.toISOString();
+  if (typeof val === "number") {
+    const ms = val < 1e12 ? val * 1000 : val;
+    return new Date(ms).toISOString();
+  }
+  if (typeof val === "string") {
+    const date = new Date(val);
+    return Number.isNaN(date.getTime()) ? "" : date.toISOString();
+  }
+  return "";
+};
 
 /**
  * Get real-time quote for a ticker
@@ -538,4 +579,536 @@ export async function screenEquities(filters: {
 
   console.log(`[Screener] Final: ${results.length} results from ${source}`);
   return results;
+}
+
+// ============================================
+// New Bloomberg MCP Tools
+// ============================================
+
+export async function getAnalystRatings(ticker: string): Promise<AnalystRatings | null> {
+  const cacheKey = `analyst:ratings:${ticker.toUpperCase()}`;
+  const cached = cache.get<AnalystRatings>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const summary = await yahooFinance.quoteSummary(ticker, {
+      modules: ["recommendationTrend", "financialData"],
+    });
+
+    const trend = summary.recommendationTrend?.trend?.[0] || {};
+    const strongBuy = toNumber(trend.strongBuy);
+    const buy = toNumber(trend.buy);
+    const hold = toNumber(trend.hold);
+    const sell = toNumber(trend.sell);
+    const strongSell = toNumber(trend.strongSell);
+
+    const total = strongBuy + buy + hold + sell + strongSell;
+    const recommendationKey = typeof summary.financialData?.recommendationKey === "string"
+      ? summary.financialData.recommendationKey
+      : "";
+
+    let consensus: AnalystRatings["consensus"] = "Hold";
+    const keyMap: Record<string, AnalystRatings["consensus"]> = {
+      strong_buy: "Strong Buy",
+      buy: "Buy",
+      hold: "Hold",
+      sell: "Sell",
+      strong_sell: "Strong Sell",
+    };
+
+    if (recommendationKey && keyMap[recommendationKey]) {
+      consensus = keyMap[recommendationKey];
+    } else if (total > 0) {
+      const score =
+        (strongBuy * 1 + buy * 2 + hold * 3 + sell * 4 + strongSell * 5) / total;
+      if (score <= 1.5) consensus = "Strong Buy";
+      else if (score <= 2.5) consensus = "Buy";
+      else if (score <= 3.5) consensus = "Hold";
+      else if (score <= 4.5) consensus = "Sell";
+      else consensus = "Strong Sell";
+    }
+
+    const ratings: AnalystRatings = {
+      ticker: ticker.toUpperCase(),
+      strongBuy,
+      buy,
+      hold,
+      sell,
+      strongSell,
+      consensus,
+      priceTarget: toNumber(summary.financialData?.targetMeanPrice),
+      numberOfAnalysts: total || toNumber(summary.financialData?.numberOfAnalystOpinions),
+    };
+
+    cache.set(cacheKey, ratings, CACHE_TTL.FUNDAMENTALS);
+    return ratings;
+  } catch (error) {
+    console.error(`Yahoo Finance analyst ratings error for ${ticker}:`, error);
+    return null;
+  }
+}
+
+export async function getInsiderTransactions(
+  ticker: string,
+  limit = 50
+): Promise<{ transactions: InsiderTransaction[]; summary: InsiderSummary }> {
+  const cacheKey = `insider:transactions:${ticker.toUpperCase()}:${limit}`;
+  const cached = cache.get<{ transactions: InsiderTransaction[]; summary: InsiderSummary }>(
+    cacheKey
+  );
+  if (cached) return cached;
+
+  const summaryResult: InsiderSummary = {
+    netShares: 0,
+    netValue: 0,
+    buys: 0,
+    sells: 0,
+  };
+
+  try {
+    const summary = await yahooFinance.quoteSummary(ticker, {
+      modules: ["insiderTransactions"],
+    });
+
+    const raw = summary.insiderTransactions?.transactions || [];
+    const transactions: InsiderTransaction[] = raw.slice(0, limit).map((t: any) => {
+      const transactionText = typeof t.transactionText === "string" ? t.transactionText : "";
+      const normalizedText = transactionText.toLowerCase();
+      let transactionType: InsiderTransaction["transactionType"] = "Other";
+      if (normalizedText.includes("purchase") || normalizedText.includes("buy")) transactionType = "Buy";
+      else if (normalizedText.includes("sale") || normalizedText.includes("sell")) transactionType = "Sell";
+      else if (normalizedText.includes("exercise")) transactionType = "Option Exercise";
+      else if (normalizedText.includes("gift")) transactionType = "Gift";
+
+      const shares = toNumber(t.shares);
+      const totalValue = toNumber(t.value);
+      const pricePerShare = shares > 0 ? totalValue / shares : toNumber(t.price);
+
+      if (transactionType === "Buy") {
+        summaryResult.buys += 1;
+        summaryResult.netShares += shares;
+        summaryResult.netValue += totalValue;
+      } else if (transactionType === "Sell") {
+        summaryResult.sells += 1;
+        summaryResult.netShares -= shares;
+        summaryResult.netValue -= totalValue;
+      }
+
+      return {
+        name: t.filerName || t.insider?.name || "Unknown",
+        title: t.filerRelation || t.insider?.title || "Insider",
+        transactionDate: toIsoDate(t.startDate) || toIsoDate(t.transactionDate),
+        transactionType,
+        shares,
+        pricePerShare,
+        totalValue,
+        sharesOwned: toNumber(t.sharesOwnedFollowingTransaction || t.sharesOwned),
+      };
+    });
+
+    const result = { transactions, summary: summaryResult };
+    cache.set(cacheKey, result, CACHE_TTL.FUNDAMENTALS);
+    return result;
+  } catch (error) {
+    console.error(`Yahoo Finance insider transactions error for ${ticker}:`, error);
+    return { transactions: [], summary: summaryResult };
+  }
+}
+
+export async function getInstitutionalOwnership(
+  ticker: string
+): Promise<InstitutionalOwnership | null> {
+  const cacheKey = `institutional:${ticker.toUpperCase()}`;
+  const cached = cache.get<InstitutionalOwnership>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const summary = await yahooFinance.quoteSummary(ticker, {
+      modules: ["institutionOwnership"],
+    });
+
+    const list = summary.institutionOwnership?.ownershipList || [];
+    const holders: InstitutionalHolder[] = list.map((holder: any) => ({
+      name: holder.organization || holder.holder || "Unknown",
+      shares: toNumber(holder.position),
+      value: toNumber(holder.value),
+      percentOwned: toNumber(holder.pctHeld) * 100,
+      dateReported: toIsoDate(holder.reportDate),
+    }));
+
+    const totalShares = holders.reduce((sum, h) => sum + h.shares, 0);
+    const totalValue = holders.reduce((sum, h) => sum + h.value, 0);
+    const percentOwned = holders.reduce((sum, h) => sum + h.percentOwned, 0);
+
+    const ownership: InstitutionalOwnership = {
+      ticker: ticker.toUpperCase(),
+      totalShares,
+      totalValue,
+      percentOwned,
+      holders,
+    };
+
+    cache.set(cacheKey, ownership, CACHE_TTL.FUNDAMENTALS);
+    return ownership;
+  } catch (error) {
+    console.error(`Yahoo Finance institutional ownership error for ${ticker}:`, error);
+    return null;
+  }
+}
+
+export async function getOptionsChain(
+  ticker: string,
+  expiration?: string
+): Promise<OptionsChain | null> {
+  const cacheKey = `options:${ticker.toUpperCase()}:${expiration || "all"}`;
+  const cached = cache.get<OptionsChain>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const optionsResult = await yahooFinance.options(ticker, expiration
+      ? { date: new Date(expiration) }
+      : undefined
+    );
+
+    const expirationDates = (optionsResult.expirationDates || []).map((d) =>
+      toIsoDate(d).split("T")[0]
+    );
+    const optionSet = optionsResult.options?.[0];
+    if (!optionSet) return null;
+
+    const toContract = (opt: any): OptionContract => ({
+      strike: toNumber(opt.strike),
+      last: toNumber(opt.lastPrice),
+      bid: toNumber(opt.bid),
+      ask: toNumber(opt.ask),
+      volume: toNumber(opt.volume),
+      openInterest: toNumber(opt.openInterest),
+      impliedVolatility: toNumber(opt.impliedVolatility),
+      delta: typeof opt.delta === "number" ? opt.delta : undefined,
+      gamma: typeof opt.gamma === "number" ? opt.gamma : undefined,
+      theta: typeof opt.theta === "number" ? opt.theta : undefined,
+      vega: typeof opt.vega === "number" ? opt.vega : undefined,
+      inTheMoney: Boolean(opt.inTheMoney),
+    });
+
+    const chain: OptionsChain = {
+      ticker: ticker.toUpperCase(),
+      expiration: toIsoDate(optionSet.expirationDate).split("T")[0],
+      calls: (optionSet.calls || []).map(toContract),
+      puts: (optionSet.puts || []).map(toContract),
+      underlyingPrice: toNumber(optionsResult.quote?.regularMarketPrice),
+      availableExpirations: expirationDates,
+    };
+
+    cache.set(cacheKey, chain, CACHE_TTL.QUOTE);
+    return chain;
+  } catch (error) {
+    console.error(`Yahoo Finance options chain error for ${ticker}:`, error);
+    return null;
+  }
+}
+
+export async function getUnusualOptionsActivity(
+  ticker: string,
+  minVolume = 1000
+): Promise<UnusualOptionsActivity[]> {
+  const cacheKey = `options:unusual:${ticker.toUpperCase()}:${minVolume}`;
+  const cached = cache.get<UnusualOptionsActivity[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const optionsResult = await yahooFinance.options(ticker);
+    const underlying = toNumber(optionsResult.quote?.regularMarketPrice);
+    const unusual: UnusualOptionsActivity[] = [];
+
+    for (const expiry of optionsResult.options || []) {
+      const expiration = toIsoDate(expiry.expirationDate).split("T")[0];
+      const pushOption = (opt: any, type: "call" | "put") => {
+        const volume = toNumber(opt.volume);
+        const openInterest = toNumber(opt.openInterest);
+        if (volume < minVolume) return;
+        const ratio = openInterest > 0 ? volume / openInterest : volume;
+        const unusualScore = ratio * Math.log10(volume + 1);
+        unusual.push({
+          ticker: ticker.toUpperCase(),
+          strike: toNumber(opt.strike),
+          expiration,
+          type,
+          volume,
+          openInterest,
+          volumeOiRatio: ratio,
+          unusualScore,
+          lastPrice: toNumber(opt.lastPrice) || underlying,
+        });
+      };
+
+      for (const call of expiry.calls || []) pushOption(call, "call");
+      for (const put of expiry.puts || []) pushOption(put, "put");
+    }
+
+    unusual.sort((a, b) => b.unusualScore - a.unusualScore);
+    const result = unusual.slice(0, 50);
+    cache.set(cacheKey, result, CACHE_TTL.QUOTE);
+    return result;
+  } catch (error) {
+    console.error(`Yahoo Finance unusual options error for ${ticker}:`, error);
+    return [];
+  }
+}
+
+export async function getEsgScores(ticker: string): Promise<EsgScores | null> {
+  const cacheKey = `esg:${ticker.toUpperCase()}`;
+  const cached = cache.get<EsgScores>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const summary = await yahooFinance.quoteSummary(ticker, {
+      modules: ["esgScores"],
+    });
+
+    const scores = summary.esgScores;
+    if (!scores) return null;
+
+    const lastUpdated =
+      typeof scores.ratingYear === "number"
+        ? new Date(scores.ratingYear, 0, 1).toISOString()
+        : new Date().toISOString();
+
+    const result: EsgScores = {
+      ticker: ticker.toUpperCase(),
+      totalScore: toNumber(scores.totalEsg),
+      environmentScore: toNumber(scores.environmentScore),
+      socialScore: toNumber(scores.socialScore),
+      governanceScore: toNumber(scores.governanceScore),
+      controversyLevel: toNumber(scores.controversyLevel),
+      peerGroup: scores.peerGroup || "Unknown",
+      peerAverage: toNumber(scores.peerGroupAvg),
+      lastUpdated,
+    };
+
+    cache.set(cacheKey, result, CACHE_TTL.FUNDAMENTALS);
+    return result;
+  } catch (error) {
+    console.error(`Yahoo Finance ESG scores error for ${ticker}:`, error);
+    return null;
+  }
+}
+
+export async function getForexQuote(pair: string): Promise<ForexQuote | null> {
+  const normalized = pair.toUpperCase().replace("/", "").replace("-", "");
+  const symbol = normalized.endsWith("=X") ? normalized : `${normalized}=X`;
+  const cacheKey = `forex:${symbol}`;
+  const cached = cache.get<ForexQuote>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const quote = await yahooFinance.quote(symbol);
+    if (!quote || quote.regularMarketPrice === undefined) return null;
+
+    const result: ForexQuote = {
+      pair: normalized.includes("=X") ? normalized.replace("=X", "") : normalized,
+      rate: toNumber(quote.regularMarketPrice),
+      bid: toNumber(quote.bid),
+      ask: toNumber(quote.ask),
+      change: toNumber(quote.regularMarketChange),
+      changePercent: toNumber(quote.regularMarketChangePercent),
+      high: toNumber(quote.regularMarketDayHigh),
+      low: toNumber(quote.regularMarketDayLow),
+      timestamp: new Date().toISOString(),
+    };
+
+    cache.set(cacheKey, result, CACHE_TTL.QUOTE);
+    return result;
+  } catch (error) {
+    console.error(`Yahoo Finance forex quote error for ${pair}:`, error);
+    return null;
+  }
+}
+
+const COMMODITY_MAP: Record<string, { symbol: string; name: string; category: CommodityPrice["category"]; unit: string }> = {
+  gold: { symbol: "GC=F", name: "Gold", category: "metals", unit: "USD/oz" },
+  silver: { symbol: "SI=F", name: "Silver", category: "metals", unit: "USD/oz" },
+  copper: { symbol: "HG=F", name: "Copper", category: "metals", unit: "USD/lb" },
+  platinum: { symbol: "PL=F", name: "Platinum", category: "metals", unit: "USD/oz" },
+  oil: { symbol: "CL=F", name: "Crude Oil", category: "energy", unit: "USD/bbl" },
+  wti: { symbol: "CL=F", name: "Crude Oil", category: "energy", unit: "USD/bbl" },
+  brent: { symbol: "BZ=F", name: "Brent Oil", category: "energy", unit: "USD/bbl" },
+  gas: { symbol: "NG=F", name: "Natural Gas", category: "energy", unit: "USD/MMBtu" },
+  naturalgas: { symbol: "NG=F", name: "Natural Gas", category: "energy", unit: "USD/MMBtu" },
+  corn: { symbol: "ZC=F", name: "Corn", category: "agriculture", unit: "USD/bushel" },
+  wheat: { symbol: "ZW=F", name: "Wheat", category: "agriculture", unit: "USD/bushel" },
+  soybeans: { symbol: "ZS=F", name: "Soybeans", category: "agriculture", unit: "USD/bushel" },
+  coffee: { symbol: "KC=F", name: "Coffee", category: "agriculture", unit: "USD/lb" },
+  sugar: { symbol: "SB=F", name: "Sugar", category: "agriculture", unit: "USD/lb" },
+};
+
+export async function getCommodityPrices(
+  commodities: string[]
+): Promise<CommodityPrice[]> {
+  const normalized = commodities.length > 0 ? commodities : Object.keys(COMMODITY_MAP);
+  const symbols = normalized.map((c) => {
+    const key = c.toLowerCase().replace(/\s+/g, "");
+    return COMMODITY_MAP[key]?.symbol || c;
+  });
+
+  const cacheKey = `commodities:${symbols.join(",")}`;
+  const cached = cache.get<CommodityPrice[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const quotes = await yahooFinance.quote(symbols);
+    const quotesArray = Array.isArray(quotes) ? quotes : [quotes];
+
+    const results: CommodityPrice[] = quotesArray.map((q) => {
+      const symbol = q.symbol || "";
+      const mapEntry = Object.values(COMMODITY_MAP).find((m) => m.symbol === symbol);
+      return {
+        symbol,
+        name: mapEntry?.name || q.shortName || symbol,
+        category: mapEntry?.category || "energy",
+        price: toNumber(q.regularMarketPrice),
+        change: toNumber(q.regularMarketChange),
+        changePercent: toNumber(q.regularMarketChangePercent),
+        unit: mapEntry?.unit || "USD",
+        timestamp: new Date().toISOString(),
+      };
+    });
+
+    cache.set(cacheKey, results, CACHE_TTL.QUOTE);
+    return results;
+  } catch (error) {
+    console.error("Yahoo Finance commodities error:", error);
+    return [];
+  }
+}
+
+export async function getEtfHoldings(ticker: string): Promise<EtfHoldings | null> {
+  const cacheKey = `etf:holdings:${ticker.toUpperCase()}`;
+  const cached = cache.get<EtfHoldings>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const summary = await yahooFinance.quoteSummary(ticker, {
+      modules: ["topHoldings", "fundProfile", "summaryDetail"],
+    });
+
+    const topHoldings = summary.topHoldings;
+    const fundProfile = summary.fundProfile;
+    const summaryDetail = summary.summaryDetail;
+
+    if (!topHoldings && !fundProfile && !summaryDetail) return null;
+
+    const holdings: EtfHolding[] = (topHoldings?.holdings || []).map((h: any) => ({
+      ticker: h.symbol || "",
+      name: h.holdingName || h.name || h.symbol || "Holding",
+      weight: toNumber(h.holdingPercent) * 100,
+    }));
+
+    const sectorBreakdown: EtfSectorBreakdown[] = (topHoldings?.sectorWeightings || []).flatMap(
+      (entry: Record<string, number>) =>
+        Object.entries(entry).map(([sector, weight]) => ({
+          sector,
+          weight: toNumber(weight) * 100,
+        }))
+    );
+
+    const expenseRatio =
+      toNumber(fundProfile?.feesExpensesInvestment?.annualReportExpenseRatio) ||
+      toNumber(topHoldings?.expenseRatio) ||
+      toNumber(summaryDetail?.expenseRatio);
+
+    const aum = toNumber(summaryDetail?.totalAssets || fundProfile?.totalAssets);
+
+    const result: EtfHoldings = {
+      ticker: ticker.toUpperCase(),
+      name: summaryDetail?.shortName || summaryDetail?.longName || ticker.toUpperCase(),
+      expenseRatio,
+      aum,
+      holdings,
+      sectorBreakdown,
+    };
+
+    cache.set(cacheKey, result, CACHE_TTL.FUNDAMENTALS);
+    return result;
+  } catch (error) {
+    console.error(`Yahoo Finance ETF holdings error for ${ticker}:`, error);
+    return null;
+  }
+}
+
+export async function getDividendHistory(
+  ticker: string,
+  from?: string,
+  to?: string
+): Promise<DividendHistory[]> {
+  const cacheKey = `dividends:${ticker.toUpperCase()}:${from || "start"}:${to || "now"}`;
+  const cached = cache.get<DividendHistory[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const period1 = from ? new Date(from) : new Date(new Date().getFullYear() - 5, 0, 1);
+    const period2 = to ? new Date(to) : new Date();
+    const chart = await yahooFinance.chart(ticker, {
+      period1,
+      period2,
+      interval: "1d",
+      events: "dividends",
+      return: "array",
+    });
+
+    const dividends = chart.events?.dividends;
+    const dividendArray = Array.isArray(dividends) ? dividends : Object.values(dividends || {});
+
+    const history: DividendHistory[] = dividendArray.map((div) => ({
+      date: toIsoDate(div.date).split("T")[0],
+      amount: toNumber(div.amount),
+    }));
+
+    history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    cache.set(cacheKey, history, CACHE_TTL.FUNDAMENTALS);
+    return history;
+  } catch (error) {
+    console.error(`Yahoo Finance dividend history error for ${ticker}:`, error);
+    return [];
+  }
+}
+
+export async function getStockSplits(
+  ticker: string,
+  from?: string,
+  to?: string
+): Promise<StockSplit[]> {
+  const cacheKey = `splits:${ticker.toUpperCase()}:${from || "start"}:${to || "now"}`;
+  const cached = cache.get<StockSplit[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const period1 = from ? new Date(from) : new Date(new Date().getFullYear() - 10, 0, 1);
+    const period2 = to ? new Date(to) : new Date();
+    const chart = await yahooFinance.chart(ticker, {
+      period1,
+      period2,
+      interval: "1d",
+      events: "splits",
+      return: "array",
+    });
+
+    const splits = chart.events?.splits;
+    const splitsArray = Array.isArray(splits) ? splits : Object.values(splits || {});
+
+    const results: StockSplit[] = splitsArray.map((split) => ({
+      ticker: ticker.toUpperCase(),
+      date: toIsoDate(split.date).split("T")[0],
+      ratio: split.splitRatio || `${split.numerator}:${split.denominator}`,
+      fromFactor: toNumber(split.denominator),
+      toFactor: toNumber(split.numerator),
+    }));
+
+    results.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    cache.set(cacheKey, results, CACHE_TTL.FUNDAMENTALS);
+    return results;
+  } catch (error) {
+    console.error(`Yahoo Finance stock splits error for ${ticker}:`, error);
+    return [];
+  }
 }
