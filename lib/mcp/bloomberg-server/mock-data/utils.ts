@@ -408,13 +408,23 @@ export function getEconomicCalendar(options?: {
     filtered = filtered.filter(e => e.importance === options.importance);
   }
   if (options?.startDate) {
-    filtered = filtered.filter(e => new Date(e.eventTime) >= new Date(options.startDate!));
+    filtered = filtered.filter(e => {
+      const date = e.eventTime || e.date;
+      return date ? new Date(date) >= new Date(options.startDate!) : false;
+    });
   }
   if (options?.endDate) {
-    filtered = filtered.filter(e => new Date(e.eventTime) <= new Date(options.endDate!));
+    filtered = filtered.filter(e => {
+      const date = e.eventTime || e.date;
+      return date ? new Date(date) <= new Date(options.endDate!) : false;
+    });
   }
   
-  filtered.sort((a, b) => new Date(a.eventTime).getTime() - new Date(b.eventTime).getTime());
+  filtered.sort((a, b) => {
+    const aDate = new Date(a.eventTime || a.date || 0).getTime();
+    const bDate = new Date(b.eventTime || b.date || 0).getTime();
+    return aDate - bDate;
+  });
   return filtered;
 }
 

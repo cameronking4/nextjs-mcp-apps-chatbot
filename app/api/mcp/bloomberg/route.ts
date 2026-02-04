@@ -1928,14 +1928,14 @@ async function executeTool(
 
       if (!targets) {
         const fallback = await getAnalystRatings(ticker);
-        if (fallback?.priceTarget) {
+        if (typeof fallback?.priceTarget === "number") {
           targets = {
             ticker: fallback.ticker,
             targetHigh: fallback.priceTarget,
             targetLow: fallback.priceTarget,
             targetMean: fallback.priceTarget,
             targetMedian: fallback.priceTarget,
-            numberOfAnalysts: fallback.numberOfAnalysts,
+            numberOfAnalysts: fallback.numberOfAnalysts ?? 0,
             lastUpdated: new Date().toISOString(),
           };
         }

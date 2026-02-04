@@ -211,266 +211,6 @@ export interface Sector {
 }
 
 // ============================================
-// Options Types
-// ============================================
-
-export interface OptionsChain {
-  ticker: string;
-  expiration: string;
-  calls: OptionContract[];
-  puts: OptionContract[];
-  underlyingPrice: number;
-  availableExpirations?: string[];
-}
-
-export interface OptionContract {
-  strike: number;
-  last: number;
-  bid: number;
-  ask: number;
-  volume: number;
-  openInterest: number;
-  impliedVolatility: number;
-  delta?: number;
-  gamma?: number;
-  theta?: number;
-  vega?: number;
-  inTheMoney: boolean;
-}
-
-export interface UnusualOptionsActivity {
-  ticker: string;
-  strike: number;
-  expiration: string;
-  type: 'call' | 'put';
-  volume: number;
-  openInterest: number;
-  volumeOiRatio: number;
-  unusualScore: number;
-  lastPrice: number;
-}
-
-// ============================================
-// Analyst & Ownership Types
-// ============================================
-
-export interface AnalystRatings {
-  ticker: string;
-  strongBuy: number;
-  buy: number;
-  hold: number;
-  sell: number;
-  strongSell: number;
-  consensus: 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell';
-  priceTarget?: number;
-  numberOfAnalysts: number;
-}
-
-export interface PriceTarget {
-  ticker: string;
-  targetHigh: number;
-  targetLow: number;
-  targetMean: number;
-  targetMedian: number;
-  numberOfAnalysts: number;
-  lastUpdated: string;
-}
-
-export interface InsiderTransaction {
-  name: string;
-  title: string;
-  transactionDate: string;
-  transactionType: 'Buy' | 'Sell' | 'Option Exercise' | 'Gift' | 'Other';
-  shares: number;
-  pricePerShare: number;
-  totalValue: number;
-  sharesOwned: number;
-}
-
-export interface InsiderSummary {
-  netShares: number;
-  netValue: number;
-  buys: number;
-  sells: number;
-}
-
-export interface InstitutionalHolder {
-  name: string;
-  shares: number;
-  value: number;
-  percentOwned: number;
-  dateReported: string;
-}
-
-export interface InstitutionalOwnership {
-  ticker: string;
-  totalShares: number;
-  totalValue: number;
-  percentOwned: number;
-  holders: InstitutionalHolder[];
-}
-
-// ============================================
-// Economic Data Types
-// ============================================
-
-export interface EconomicIndicator {
-  indicator: string;
-  name: string;
-  value: number;
-  date: string;
-  unit: string;
-  frequency: string;
-  change: number;
-  changePercent: number;
-  history: Array<{ date: string; value: number }>;
-}
-
-// ============================================
-// Corporate Actions Types
-// ============================================
-
-export interface DividendEvent {
-  ticker: string;
-  exDate: string;
-  paymentDate?: string;
-  recordDate?: string;
-  amount: number;
-  frequency: string;
-  yield: number;
-}
-
-export interface DividendHistory {
-  date: string;
-  amount: number;
-}
-
-export interface StockSplit {
-  ticker: string;
-  date: string;
-  ratio: string;
-  fromFactor: number;
-  toFactor: number;
-}
-
-export interface IpoEvent {
-  ticker: string;
-  company: string;
-  date: string;
-  priceRange: string;
-  shares: number;
-  expectedValue: number;
-  exchange: string;
-}
-
-// ============================================
-// Forex & Commodities Types
-// ============================================
-
-export interface ForexQuote {
-  pair: string;
-  rate: number;
-  bid: number;
-  ask: number;
-  change: number;
-  changePercent: number;
-  high: number;
-  low: number;
-  timestamp: string;
-}
-
-export interface CommodityPrice {
-  symbol: string;
-  name: string;
-  category: 'metals' | 'energy' | 'agriculture';
-  price: number;
-  change: number;
-  changePercent: number;
-  unit: string;
-  timestamp: string;
-}
-
-// ============================================
-// ETF Types
-// ============================================
-
-export interface EtfHolding {
-  ticker: string;
-  name: string;
-  weight: number;
-}
-
-export interface EtfSectorBreakdown {
-  sector: string;
-  weight: number;
-}
-
-export interface EtfHoldings {
-  ticker: string;
-  name: string;
-  expenseRatio: number;
-  aum: number;
-  holdings: EtfHolding[];
-  sectorBreakdown: EtfSectorBreakdown[];
-}
-
-// ============================================
-// Technical Analysis Types
-// ============================================
-
-export interface TechnicalIndicators {
-  ticker: string;
-  period: string;
-  indicators: {
-    rsi?: number[];
-    macd?: { macd: number[]; signal: number[]; histogram: number[] };
-    sma?: { [period: number]: number[] };
-    ema?: { [period: number]: number[] };
-    bollingerBands?: { upper: number[]; middle: number[]; lower: number[] };
-  };
-  timestamps: string[];
-}
-
-// ============================================
-// Company Intelligence Types
-// ============================================
-
-export interface CompanyPeers {
-  ticker: string;
-  peers: string[];
-}
-
-export interface SupplyChainData {
-  ticker: string;
-  suppliers: Array<{
-    name: string;
-    ticker?: string;
-    exposure: number;
-  }>;
-  customers: Array<{
-    name: string;
-    ticker?: string;
-    exposure: number;
-  }>;
-}
-
-// ============================================
-// ESG Types
-// ============================================
-
-export interface EsgScores {
-  ticker: string;
-  totalScore: number;
-  environmentScore: number;
-  socialScore: number;
-  governanceScore: number;
-  controversyLevel: number;
-  peerGroup: string;
-  peerAverage: number;
-  lastUpdated: string;
-}
-
-// ============================================
 // Tool Response Types
 // ============================================
 
@@ -543,22 +283,25 @@ export interface CompanyResearch {
 export interface OptionsChain {
   ticker: string;
   underlyingPrice: number;
-  expirations: string[];
-  selectedExpiration: string;
+  expirations?: string[];
+  selectedExpiration?: string;
+  expiration?: string;
+  availableExpirations?: string[];
   calls: OptionContract[];
   puts: OptionContract[];
 }
 
 export interface OptionContract {
-  contractSymbol: string;
+  contractSymbol?: string;
   strike: number;
-  expiration: string;
-  type: 'call' | 'put';
-  lastPrice: number;
+  expiration?: string;
+  type?: 'call' | 'put';
+  last?: number;
+  lastPrice?: number;
   bid: number;
   ask: number;
-  change: number;
-  changePercent: number;
+  change?: number;
+  changePercent?: number;
   volume: number;
   openInterest: number;
   impliedVolatility: number;
@@ -572,7 +315,7 @@ export interface OptionContract {
 
 export interface UnusualOptionsActivity {
   ticker: string;
-  contractSymbol: string;
+  contractSymbol?: string;
   strike: number;
   expiration: string;
   type: 'call' | 'put';
@@ -581,7 +324,7 @@ export interface UnusualOptionsActivity {
   volumeOiRatio: number;
   unusualScore: number;
   lastPrice: number;
-  underlyingPrice: number;
+  underlyingPrice?: number;
 }
 
 // ============================================
@@ -595,10 +338,11 @@ export interface AnalystRatings {
   hold: number;
   sell: number;
   strongSell: number;
-  totalAnalysts: number;
+  totalAnalysts?: number;
+  numberOfAnalysts?: number;
   consensus: 'Strong Buy' | 'Buy' | 'Hold' | 'Sell' | 'Strong Sell';
-  averageScore: number; // 1-5 scale
-  priceTarget?: PriceTarget;
+  averageScore?: number; // 1-5 scale
+  priceTarget?: number;
 }
 
 export interface PriceTarget {
@@ -607,14 +351,14 @@ export interface PriceTarget {
   targetLow: number;
   targetMean: number;
   targetMedian: number;
-  currentPrice: number;
+  currentPrice?: number;
   numberOfAnalysts: number;
-  upside: number; // percentage
+  upside?: number; // percentage
   lastUpdated: string;
 }
 
 export interface InsiderTransaction {
-  ticker: string;
+  ticker?: string;
   name: string;
   title: string;
   transactionDate: string;
@@ -623,17 +367,19 @@ export interface InsiderTransaction {
   pricePerShare: number;
   totalValue: number;
   sharesOwned: number;
-  filingDate: string;
+  filingDate?: string;
 }
 
 export interface InsiderSummary {
-  ticker: string;
-  transactions: InsiderTransaction[];
+  ticker?: string;
+  transactions?: InsiderTransaction[];
   netShares: number;
   netValue: number;
-  buyCount: number;
-  sellCount: number;
-  sentiment: 'Bullish' | 'Bearish' | 'Neutral';
+  buyCount?: number;
+  sellCount?: number;
+  sentiment?: 'Bullish' | 'Bearish' | 'Neutral';
+  buys?: number;
+  sells?: number;
 }
 
 export interface InstitutionalHolder {
@@ -641,18 +387,22 @@ export interface InstitutionalHolder {
   shares: number;
   value: number;
   percentOwned: number;
-  changeShares: number;
-  changePercent: number;
+  changeShares?: number;
+  changePercent?: number;
   dateReported: string;
 }
 
 export interface InstitutionalOwnership {
   ticker: string;
-  totalInstitutionalShares: number;
-  totalInstitutionalValue: number;
-  percentInstitutional: number;
-  numberOfHolders: number;
-  topHolders: InstitutionalHolder[];
+  totalInstitutionalShares?: number;
+  totalInstitutionalValue?: number;
+  percentInstitutional?: number;
+  numberOfHolders?: number;
+  topHolders?: InstitutionalHolder[];
+  totalShares?: number;
+  totalValue?: number;
+  percentOwned?: number;
+  holders?: InstitutionalHolder[];
 }
 
 // ============================================
@@ -674,7 +424,7 @@ export interface EconomicCalendarEvent {
 }
 
 export interface EconomicIndicator {
-  id: string;
+  id?: string;
   indicator: string;
   name: string;
   value: number;
@@ -684,7 +434,7 @@ export interface EconomicIndicator {
   change: number;
   changePercent: number;
   history: Array<{ date: string; value: number }>;
-  country: string;
+  country?: string;
 }
 
 // ============================================
@@ -693,29 +443,25 @@ export interface EconomicIndicator {
 
 export interface DividendEvent {
   ticker: string;
-  company: string;
+  company?: string;
   exDate: string;
-  paymentDate: string;
-  recordDate: string;
-  declarationDate: string;
+  paymentDate?: string;
+  recordDate?: string;
+  declarationDate?: string;
   amount: number;
-  frequency: 'Annual' | 'Semi-Annual' | 'Quarterly' | 'Monthly' | 'Irregular';
+  frequency: string;
   yield: number;
-  currency: string;
+  currency?: string;
 }
 
 export interface DividendHistory {
-  ticker: string;
-  dividends: DividendEvent[];
-  annualDividend: number;
-  dividendYield: number;
-  payoutRatio: number;
-  dividendGrowth5Y: number;
+  date: string;
+  amount: number;
 }
 
 export interface StockSplit {
   ticker: string;
-  company: string;
+  company?: string;
   date: string;
   ratio: string;
   fromFactor: number;
@@ -727,13 +473,14 @@ export interface IpoEvent {
   ticker?: string;
   company: string;
   date: string;
-  priceRangeLow: number;
-  priceRangeHigh: number;
+  priceRangeLow?: number;
+  priceRangeHigh?: number;
+  priceRange?: string;
   price?: number;
   shares: number;
   expectedValue: number;
   exchange: string;
-  status: 'Filed' | 'Priced' | 'Withdrawn' | 'Scheduled';
+  status?: 'Filed' | 'Priced' | 'Withdrawn' | 'Scheduled';
   underwriters?: string[];
 }
 
@@ -743,18 +490,18 @@ export interface IpoEvent {
 
 export interface ForexQuote {
   pair: string;
-  baseCurrency: string;
-  quoteCurrency: string;
+  baseCurrency?: string;
+  quoteCurrency?: string;
   rate: number;
   bid: number;
   ask: number;
-  spread: number;
+  spread?: number;
   change: number;
   changePercent: number;
   high: number;
   low: number;
-  open: number;
-  previousClose: number;
+  open?: number;
+  previousClose?: number;
   timestamp: string;
 }
 
@@ -765,12 +512,12 @@ export interface CommodityPrice {
   price: number;
   change: number;
   changePercent: number;
-  high: number;
-  low: number;
-  open: number;
-  previousClose: number;
+  high?: number;
+  low?: number;
+  open?: number;
+  previousClose?: number;
   unit: string;
-  currency: string;
+  currency?: string;
   timestamp: string;
 }
 
@@ -796,11 +543,11 @@ export interface EtfHoldings {
   name: string;
   expenseRatio: number;
   aum: number;
-  nav: number;
-  inceptionDate: string;
-  category: string;
+  nav?: number;
+  inceptionDate?: string;
+  category?: string;
   holdings: EtfHolding[];
-  totalHoldings: number;
+  totalHoldings?: number;
   sectorBreakdown: EtfSectorBreakdown[];
   topCountries?: Array<{ country: string; weight: number }>;
 }
@@ -831,7 +578,15 @@ export interface BollingerBandsValue {
 export interface TechnicalIndicators {
   ticker: string;
   period: string;
-  currentPrice: number;
+  currentPrice?: number;
+  indicators: {
+    rsi?: number[];
+    macd?: { macd: number[]; signal: number[]; histogram: number[] };
+    sma?: { [period: number]: number[] };
+    ema?: { [period: number]: number[] };
+    bollingerBands?: { upper: number[]; middle: number[]; lower: number[] };
+  };
+  timestamps: string[];
   rsi?: {
     value: number;
     signal: 'Overbought' | 'Oversold' | 'Neutral';
@@ -889,23 +644,23 @@ export interface CompanyPeer {
 
 export interface CompanyPeers {
   ticker: string;
-  company: string;
-  sector: string;
-  industry: string;
-  peers: CompanyPeer[];
+  company?: string;
+  sector?: string;
+  industry?: string;
+  peers: Array<string | CompanyPeer>;
 }
 
 export interface SupplyChainRelation {
   ticker?: string;
   name: string;
-  relationship: 'supplier' | 'customer';
+  relationship?: 'supplier' | 'customer';
   exposure?: number; // percentage of revenue
   country?: string;
 }
 
 export interface SupplyChainData {
   ticker: string;
-  company: string;
+  company?: string;
   suppliers: SupplyChainRelation[];
   customers: SupplyChainRelation[];
 }
@@ -916,7 +671,7 @@ export interface SupplyChainData {
 
 export interface EsgScores {
   ticker: string;
-  company: string;
+  company?: string;
   totalScore: number;
   environmentScore: number;
   socialScore: number;
@@ -926,6 +681,7 @@ export interface EsgScores {
   governanceGrade?: string;
   controversyLevel: number; // 0-5, 5 being most severe
   peerGroup: string;
+  peerAverage?: number;
   peerRank?: number;
   peerCount?: number;
   lastUpdated: string;

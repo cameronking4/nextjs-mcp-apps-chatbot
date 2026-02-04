@@ -595,7 +595,7 @@ export async function getAnalystRatings(ticker: string): Promise<AnalystRatings 
       modules: ["recommendationTrend", "financialData"],
     });
 
-    const trend = summary.recommendationTrend?.trend?.[0] || {};
+    const trend = (summary.recommendationTrend as any)?.trend?.[0] || {};
     const strongBuy = toNumber(trend.strongBuy);
     const buy = toNumber(trend.buy);
     const hold = toNumber(trend.hold);
@@ -685,11 +685,11 @@ export async function getInsiderTransactions(
       const pricePerShare = shares > 0 ? totalValue / shares : toNumber(t.price);
 
       if (transactionType === "Buy") {
-        summaryResult.buys += 1;
+        summaryResult.buys = (summaryResult.buys ?? 0) + 1;
         summaryResult.netShares += shares;
         summaryResult.netValue += totalValue;
       } else if (transactionType === "Sell") {
-        summaryResult.sells += 1;
+        summaryResult.sells = (summaryResult.sells ?? 0) + 1;
         summaryResult.netShares -= shares;
         summaryResult.netValue -= totalValue;
       }
@@ -863,10 +863,10 @@ export async function getEsgScores(ticker: string): Promise<EsgScores | null> {
 
   try {
     const summary = await yahooFinance.quoteSummary(ticker, {
-      modules: ["esgScores"],
+      modules: ["esgScores"] as any,
     });
 
-    const scores = summary.esgScores;
+    const scores = (summary as any).esgScores as any;
     if (!scores) return null;
 
     const lastUpdated =
@@ -1005,8 +1005,8 @@ export async function getEtfHoldings(ticker: string): Promise<EtfHoldings | null
     }));
 
     const sectorBreakdown: EtfSectorBreakdown[] = (topHoldings?.sectorWeightings || []).flatMap(
-      (entry: Record<string, number>) =>
-        Object.entries(entry).map(([sector, weight]) => ({
+      (entry: any) =>
+        Object.entries(entry as Record<string, number>).map(([sector, weight]) => ({
           sector,
           weight: toNumber(weight) * 100,
         }))
@@ -1019,9 +1019,16 @@ export async function getEtfHoldings(ticker: string): Promise<EtfHoldings | null
 
     const aum = toNumber(summaryDetail?.totalAssets || fundProfile?.totalAssets);
 
+    const name =
+      typeof summaryDetail?.shortName === "string"
+        ? summaryDetail.shortName
+        : typeof summaryDetail?.longName === "string"
+          ? summaryDetail.longName
+          : ticker.toUpperCase();
+
     const result: EtfHoldings = {
       ticker: ticker.toUpperCase(),
-      name: summaryDetail?.shortName || summaryDetail?.longName || ticker.toUpperCase(),
+      name,
       expenseRatio,
       aum,
       holdings,
@@ -1057,11 +1064,11 @@ export async function getDividendHistory(
     });
 
     const dividends = chart.events?.dividends;
-    const dividendArray = Array.isArray(dividends) ? dividends : Object.values(dividends || {});
+    const dividendArray = (Array.isArray(dividends) ? dividends : Object.values(dividends || {})) as any[];
 
     const history: DividendHistory[] = dividendArray.map((div) => ({
-      date: toIsoDate(div.date).split("T")[0],
-      amount: toNumber(div.amount),
+      date: toIsoDate(div?.date).split("T")[0],
+      amount: toNumber(div?.amount),
     }));
 
     history.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -1094,14 +1101,14 @@ export async function getStockSplits(
     });
 
     const splits = chart.events?.splits;
-    const splitsArray = Array.isArray(splits) ? splits : Object.values(splits || {});
+    const splitsArray = (Array.isArray(splits) ? splits : Object.values(splits || {})) as any[];
 
     const results: StockSplit[] = splitsArray.map((split) => ({
       ticker: ticker.toUpperCase(),
-      date: toIsoDate(split.date).split("T")[0],
-      ratio: split.splitRatio || `${split.numerator}:${split.denominator}`,
-      fromFactor: toNumber(split.denominator),
-      toFactor: toNumber(split.numerator),
+      date: toIsoDate(split?.date).split("T")[0],
+      ratio: split?.splitRatio || `${split?.numerator}:${split?.denominator}`,
+      fromFactor: toNumber(split?.denominator),
+      toFactor: toNumber(split?.numerator),
     }));
 
     results.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
