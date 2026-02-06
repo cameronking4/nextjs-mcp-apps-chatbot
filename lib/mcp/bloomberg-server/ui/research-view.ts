@@ -376,7 +376,7 @@ export function getResearchViewHtml(): string {
       
       // News
       if (news.length > 0) {
-        document.getElementById('news-list').innerHTML = news.slice(0, 5).map(article => 
+        document.getElementById('news-list').innerHTML = news.slice(0, 7).map(article => 
           '<div class="news-item" data-id="' + article.id + '">' +
             '<div class="news-headline">' + escapeHtml(article.headline) + '</div>' +
             '<div class="news-meta">' +
@@ -388,7 +388,7 @@ export function getResearchViewHtml(): string {
         
         document.querySelectorAll('.news-item').forEach(item => {
           item.addEventListener('click', () => {
-            sendMessage('Tell me more about this news article');
+            sendMessage('Tell me more about this news article:' +  escapeHtml(item);
           });
         });
       }
