@@ -629,7 +629,7 @@ export function getEquityQuoteViewHtml(): string {
     let currentTimeframe = '1D';
     let refreshInterval = null;
     let isLoadingChart = false;
-    const REFRESH_INTERVAL_MS = 10000; // 10 seconds
+    const REFRESH_INTERVAL_MS = 750;
     
     // Chart dimensions
     const chartWidth = 400;
